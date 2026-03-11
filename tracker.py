@@ -1,0 +1,190 @@
+"""
+tracker.py - The core logic for tracking expert wallets on Polymarket.
+"""
+import logging
+import time
+import json
+import os
+import requests
+from config import EXPERT_WALLETS, MIN_EXPERT_TRADE_USD, POLL_INTERVAL_SECONDS
+
+logger = logging.getLogger(__name__)
+
+# Use /app (Railway working dir) first, fallback to /tmp
+def _get_data_dir():
+    for d in ["/app", "/tmp"]:
+        if os.path.isdir(d) and os.access(d, os.W_OK):
+            return d
+    return "/tmp"
+
+DATA_DIR = _get_data_dir()
+SEEN_TRADES_FILE = os.path.join(DATA_DIR, "polymarket_seen_trades.json")
+
+
+def get_recent_trades(wallet: str, limit: int = 10) -> list:
+    try:
+        r = requests.get(
+            "https://data-api.polymarket.com/trades",
+            params={"user": wallet, "limit": limit},
+            timeout=15
+        )
+        if r.status_code == 200:
+            data = r.json()
+            return data if isinstance(data, list) else []
+    except Exception as e:
+        logger.warning(f"שגיאה בשליפת עסקאות {wallet[:8]}: {e}")
+    return []
+
+
+def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple:
+    """Returns (question, url)."""
+    if title and slug:
+        url = f"https://polymarket.com/event/{slug}"
+        return title, url
+    if asset_id:
+        try:
+            r = requests.get(
+                "https://gamma-api.polymarket.com/markets",
+                params={"clob_token_ids": asset_id},
+                timeout=10
+            )
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list) and data:
+                    m = data[0]
+                    q = m.get("question", m.get("title", "שוק לא ידוע"))
+                    s = m.get("slug", "")
+                    url = f"https://polymarket.com/event/{s}" if s else "https://polymarket.com"
+                    return q, url
+        except Exception:
+            pass
+    return "שוק לא ידוע", "https://polymarket.com"
+
+
+def _parse_trade(t: dict, name: str) -> dict:
+    """Parses a trade dict and returns a signal dict or None."""
+    tid = t.get("transactionHash", t.get("id", ""))
+    if not tid:
+        return None
+
+    side = t.get("side", "BUY").upper()
+    if side != "BUY":
+        return None
+
+    size = float(t.get("size", 0))
+    price = float(t.get("price", 0))
+    usd = size * price
+    if usd == 0:
+        usd = float(t.get("usdcSize", t.get("amount", t.get("cashPayout", 0))))
+
+    if usd < MIN_EXPERT_TRADE_USD:
+        return None
+
+    outcome = t.get("outcome", "YES")
+    if isinstance(outcome, int):
+        outcome = "YES" if outcome == 0 else "NO"
+
+    asset_id = t.get("asset", t.get("asset_id", t.get("assetId", "")))
+    title = t.get("title", "")
+    slug = t.get("eventSlug", t.get("slug", ""))
+    question, url = get_market_question(asset_id, slug=slug, title=title)
+
+    return {
+        "trade_id": tid,
+        "expert_name": name,
+        "market_question": question,
+        "market_url": url,
+        "asset_id": asset_id,
+        "outcome": outcome,
+        "price": price,
+        "usd_value": usd,
+        "size": size,
+    }
+
+
+class ExpertTracker:
+    def __init__(self, on_new_trade_callback):
+        self.callback = on_new_trade_callback
+        self.seen_ids = set()
+        self._first_run = True
+        self._load_seen()
+
+    def _load_seen(self):
+        if os.path.exists(SEEN_TRADES_FILE):
+            try:
+                with open(SEEN_TRADES_FILE, 'r') as f:
+                    self.seen_ids = set(json.load(f))
+                logger.info(f"טעינת {len(self.seen_ids)} עסקאות ידועות מהדיסק")
+                self._first_run = False
+            except (json.JSONDecodeError, FileNotFoundError):
+                self.seen_ids = set()
+        else:
+            self.seen_ids = set()
+            # Will do a seed run on first check_once call
+
+    def _save_seen(self):
+        try:
+            ids = list(self.seen_ids)[-2000:]
+            with open(SEEN_TRADES_FILE, 'w') as f:
+                json.dump(ids, f)
+        except Exception as e:
+            logger.error(f"שגיאה בשמירת seen trades: {e}")
+
+    def _seed_existing_trades(self):
+        """
+        On first run (no seen_trades file), collect all current trades
+        and mark them as seen WITHOUT sending any alerts.
+        This prevents flooding on restart.
+        """
+        logger.info("הפעלה ראשונה — סורק עסקאות קיימות בלי לשלוח התראות...")
+        count = 0
+        for name, wallet in EXPERT_WALLETS.items():
+            try:
+                trades = get_recent_trades(wallet, limit=10)
+                for t in trades:
+                    tid = t.get("transactionHash", t.get("id", ""))
+                    if tid:
+                        self.seen_ids.add(tid)
+                        count += 1
+            except Exception as e:
+                logger.warning(f"שגיאה בסריקה ראשונית {name}: {e}")
+        self._save_seen()
+        self._first_run = False
+        logger.info(f"סריקה ראשונית הושלמה — {count} עסקאות סומנו כידועות")
+
+    def check_once(self):
+        """Checks all expert wallets once and triggers the callback for new trades."""
+        # On first run, seed without sending alerts
+        if self._first_run:
+            self._seed_existing_trades()
+            return
+
+        new_trades_found = False
+        for name, wallet in EXPERT_WALLETS.items():
+            try:
+                trades = get_recent_trades(wallet, limit=5)
+                for t in trades:
+                    tid = t.get("transactionHash", t.get("id", ""))
+                    if not tid or tid in self.seen_ids:
+                        continue
+
+                    # Mark as seen immediately to prevent duplicates
+                    self.seen_ids.add(tid)
+                    new_trades_found = True
+
+                    signal = _parse_trade(t, name)
+                    if signal is None:
+                        continue
+
+                    logger.info(
+                        f"[{name}] עסקה חדשה: {signal['market_question'][:60]} | "
+                        f"{signal['outcome']} @ {signal['price']:.3f} | ${signal['usd_value']:.0f}"
+                    )
+                    self.callback(signal)
+                    time.sleep(1)  # Small delay to avoid Telegram rate limits
+
+            except Exception as e:
+                logger.warning(f"שגיאה בבדיקת {name}: {e}")
+
+        if new_trades_found:
+            self._save_seen()
