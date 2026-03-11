@@ -1,14 +1,16 @@
+
 """
 config.py — הגדרות הבוט (גרסת Termux)
 """
+import os
 
 # ─── טלגרם ───────────────────────────────────────────────────────────────────
-TELEGRAM_BOT_TOKEN = "8612471675:AAG22kCF2tTsADFW74BtrdjYaxINdFnz7lE"
-TELEGRAM_CHAT_ID   = "547766473"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8612471675:AAG22kCF2tTsADFW74BtrdjYaxINdFnz7lE")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "547766473")
 
 # ─── ארנק ────────────────────────────────────────────────────────────────────
-PRIVATE_KEY = "9cd0457d9b8eb35b969927a8e92640a8a8c74ca8c00abfa98d10a83e78811239"
-WALLET_ADDRESS = "0xc060a7feF07F27847A93917d47508181e683ba61"
+PRIVATE_KEY = os.getenv("PRIVATE_KEY", "9cd0457d9b8eb35b969927a8e92640a8a8c74ca8c00abfa98d10a83e78811239")
+WALLET_ADDRESS = os.getenv("WALLET_ADDRESS", "0xc060a7feF07F27847A93917d47508181e683ba61")
 
 # ─── פולימרקט ────────────────────────────────────────────────────────────────
 POLYMARKET_GAMMA_URL = "https://gamma-api.polymarket.com"
