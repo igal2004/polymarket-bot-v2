@@ -427,10 +427,18 @@ async def main():
 
     # Send startup message
     try:
+        from config import EXPERT_WALLETS, WHALE_WALLETS
         now_il = datetime.datetime.now(ISRAEL_TZ).strftime("%H:%M:%S")
         await _ptb_app.bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
-            text=f"🟢 *בוט פולימרקט הופעל*\n\nשעה: {now_il}\nמצב: {'DRY RUN' if DRY_RUN else 'מסחר אמיתי'}\nמעקב: {len(__import__('config').EXPERT_WALLETS)} מומחים",
+            text=(
+                f"🟢 *בוט פולימרקט הופעל*\n\n"
+                f"שעה: {now_il}\n"
+                f"מצב: {'DRY RUN' if DRY_RUN else 'מסחר אמיתי'}\n"
+                f"🧐 מומחים במעקב: {len(EXPERT_WALLETS)}\n"
+                f"🐋 לווייתנים במעקב: {len(WHALE_WALLETS)}\n"
+                f"💾 גיבוי יומי אוטומטי פעיל"
+            ),
             parse_mode="Markdown"
         )
     except Exception as e:
@@ -439,6 +447,42 @@ async def main():
     # Run polling
     logger.info("מתחיל polling...")
     await _ptb_app.updater.start_polling(drop_pending_updates=True)
+
+    # Schedule daily backup job (every 24 hours)
+    async def _daily_backup_loop():
+        await asyncio.sleep(3600)  # First backup after 1 hour
+        while True:
+            try:
+                from dry_run_journal import get_summary
+                import json as _json
+                s = get_summary()
+                backup_data = {
+                    "_poly_backup": True,
+                    "timestamp": datetime.datetime.now(ISRAEL_TZ).strftime("%Y-%m-%d %H:%M:%S"),
+                    "trades": s.get("trades", []),
+                    "sim_balance": s.get("sim_balance"),
+                    "initial_balance": s.get("initial_balance"),
+                    "total": s.get("total"),
+                    "won": s.get("won"),
+                    "lost": s.get("lost"),
+                }
+                backup_json = _json.dumps(backup_data, ensure_ascii=False)
+                max_len = 3800
+                chunks = [backup_json[i:i+max_len] for i in range(0, len(backup_json), max_len)]
+                for idx, chunk in enumerate(chunks, 1):
+                    part = f" ({idx}/{len(chunks)})" if len(chunks) > 1 else ""
+                    await _ptb_app.bot.send_message(
+                        chat_id=TELEGRAM_CHAT_ID,
+                        text=f"💾 *גיבוי יומי — בוט פולימרקט{part}*\n`{chunk}`",
+                        parse_mode="Markdown",
+                        disable_notification=True,
+                    )
+                logger.info("גיבוי יומי נשלח לטלגרם")
+            except Exception as e:
+                logger.warning(f"שגיאה בגיבוי יומי: {e}")
+            await asyncio.sleep(86400)  # 24 hours
+
+    asyncio.ensure_future(_daily_backup_loop())
 
     # Keep running forever
     try:
