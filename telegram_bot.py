@@ -3,6 +3,7 @@ telegram_bot.py — בוט מומחים פולימרקט
 מריץ שרת Flask לקבלת webhook + לולאת מעקב ברקע לסריקת ארנקי מומחים.
 """
 _PENDING_TRADES = {}
+_PENDING_TRADES_FILE = "/tmp/pending_trades.json"
 
 import asyncio
 import threading
@@ -38,14 +39,37 @@ _main_loop: asyncio.AbstractEventLoop = None
 _ptb_app: Application = None
 
 
+def _load_pending_trades():
+    """Load pending trades from disk on startup."""
+    global _PENDING_TRADES
+    try:
+        if os.path.exists(_PENDING_TRADES_FILE):
+            with open(_PENDING_TRADES_FILE, 'r') as f:
+                _PENDING_TRADES = json.load(f)
+            logger.info(f"טעינת {len(_PENDING_TRADES)} עסקאות ממתינות מהדיסק")
+    except Exception as e:
+        logger.warning(f"לא ניתן לטעון עסקאות ממתינות: {e}")
+        _PENDING_TRADES = {}
+
+
+def _save_pending_trades():
+    """Save pending trades to disk."""
+    try:
+        with open(_PENDING_TRADES_FILE, 'w') as f:
+            json.dump(_PENDING_TRADES, f)
+    except Exception as e:
+        logger.warning(f"לא ניתן לשמור עסקאות ממתינות: {e}")
+
+
 def _store_pending(signal: dict) -> str:
-    """Store signal in memory and return a short key."""
+    """Store signal in memory and on disk, return a short key."""
     key = signal['trade_id'][:10]
     _PENDING_TRADES[key] = signal
     if len(_PENDING_TRADES) > 50:
         oldest_keys = list(_PENDING_TRADES.keys())[:-50]
         for k in oldest_keys:
             _PENDING_TRADES.pop(k, None)
+    _save_pending_trades()
     return key
 
 
@@ -363,6 +387,9 @@ async def main():
     global _main_loop, _ptb_app
 
     _main_loop = asyncio.get_running_loop()
+
+    # Load persisted pending trades from disk
+    _load_pending_trades()
 
     # Build the PTB application
     _ptb_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
