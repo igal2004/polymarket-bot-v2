@@ -92,14 +92,15 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    from config import EXPERT_WALLETS
+    from config import EXPERT_WALLETS, WHALE_WALLETS
     mode = "DRY RUN" if DRY_RUN else "מסחר אמיתי"
     balance = get_wallet_usdc_balance(WALLET_ADDRESS)
     max_per_trade = balance * MAX_SINGLE_TRADE_PERCENT / 100 if balance > 0 else 0
     await update.message.reply_text(
         f"*סטטוס בוט פולימרקט*\n\n"
         f"מצב: {mode}\n"
-        f"ארנקים במעקב: {len(EXPERT_WALLETS)}\n"
+        f"🐋 לווייתנים במעקב: {len(WHALE_WALLETS)}\n"
+        f"🧐 מומחים במעקב: {len(EXPERT_WALLETS)}\n"
         f"בדיקה כל: {POLL_INTERVAL_SECONDS} שניות\n\n"
         f"*הגנות ארנק:*\n"
         f"יתרה: ${balance:.2f} USDC\n"
@@ -193,13 +194,21 @@ async def send_trade_alert(signal: dict):
 
     balance_line = f"\n💰 יתרתך: ${balance:.2f}" if balance else ""
 
+    trader_type = signal.get("trader_type", "expert")
+    if trader_type == "whale":
+        alert_header = f"🐋 *עסקת לווייתן חדשה* — {now_il}"
+        trader_label = "לווייתן"
+    else:
+        alert_header = f"🚨 *עסקת מומחה חדשה* — {now_il}"
+        trader_label = "מומחה"
+
     text = (
-        f"🚨 *עסקת מומחה חדשה* — {now_il}\n\n"
-        f"👤 מומחה: *{expert}*\n"
+        f"{alert_header}\n\n"
+        f"👤 {trader_label}: *{expert}*\n"
         f"📊 שוק: {market[:80]}\n"
         f"🎯 כיוון: *{outcome}*\n"
         f"💵 מחיר: *{price:.3f}* ({price_pct:.1f}%) — {price_emoji}\n"
-        f"💰 סכום מומחה: ${usd_val:.0f}\n"
+        f"💰 סכום {trader_label}: ${usd_val:.0f}\n"
         f"⚡ סכום מוצע: ${trade_amount:.2f}{balance_line}\n\n"
         f"🔗 [פתח שוק]({url})"
     )

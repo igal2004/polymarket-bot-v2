@@ -17,6 +17,16 @@ POLYMARKET_GAMMA_URL = "https://gamma-api.polymarket.com"
 POLYMARKET_CLOB_URL  = "https://clob.polymarket.com"
 POLYGON_CHAIN_ID     = 137
 
+# ─── ארנקי לווייתנים למעקב ─────────────────────────────────────────────────────
+# הלווייתנים הגדולים ביותר בפולימרקט לפי רווח כולל
+WHALE_WALLETS = {
+    "Theo4":      "0x56687bf447db6ffa42ffe2204a05edaa20f55839",  # #1 כל הזמנים | +$22M | Win Rate 88.9%
+    "Fredi9999":  "0x1f2dd6d473f3e824cd2f8a89d9c69fb96f6ad0cf",  # #2 כל הזמנים | +$16.6M | Win Rate 73.3%
+    "Len9311238": "0x78b9ac44a6d7d7a076c14e0ad518b301b63c6b76",  # #4 כל הזמנים | +$8.7M | Win Rate 100%
+    "zxgngl":     "0xd235973291b2b75ff4070e9c0b01728c520b0f29",  # #5 כל הזמנים | +$7.8M | Win Rate 80%
+    "RepTrump":   "0x863134d00841b2e200492805a01e1e2f5defaa53",  # #6 כל הזמנים | +$7.5M | Win Rate 100%
+}
+
 # ─── ארנקי מומחים למעקב ──────────────────────────────────────────────────────
 EXPERT_WALLETS = {
     "kch123":               "0x6a72f61820b26b1fe4d956e17b6dc2a1ea3033ee",

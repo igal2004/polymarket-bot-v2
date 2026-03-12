@@ -6,7 +6,7 @@ import time
 import json
 import os
 import requests
-from config import EXPERT_WALLETS, MIN_EXPERT_TRADE_USD, POLL_INTERVAL_SECONDS
+from config import EXPERT_WALLETS, WHALE_WALLETS, MIN_EXPERT_TRADE_USD, POLL_INTERVAL_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,8 @@ class ExpertTracker:
         """
         logger.info("הפעלה ראשונה — סורק עסקאות קיימות בלי לשלוח התראות...")
         count = 0
-        for name, wallet in EXPERT_WALLETS.items():
+        all_wallets = {**EXPERT_WALLETS, **WHALE_WALLETS}
+        for name, wallet in all_wallets.items():
             try:
                 trades = get_recent_trades(wallet, limit=10)
                 for t in trades:
@@ -160,6 +161,8 @@ class ExpertTracker:
             return
 
         new_trades_found = False
+
+        # Check expert wallets
         for name, wallet in EXPERT_WALLETS.items():
             try:
                 trades = get_recent_trades(wallet, limit=5)
@@ -168,7 +171,6 @@ class ExpertTracker:
                     if not tid or tid in self.seen_ids:
                         continue
 
-                    # Mark as seen immediately to prevent duplicates
                     self.seen_ids.add(tid)
                     new_trades_found = True
 
@@ -176,15 +178,43 @@ class ExpertTracker:
                     if signal is None:
                         continue
 
+                    signal["trader_type"] = "expert"
                     logger.info(
                         f"[{name}] עסקה חדשה: {signal['market_question'][:60]} | "
                         f"{signal['outcome']} @ {signal['price']:.3f} | ${signal['usd_value']:.0f}"
                     )
                     self.callback(signal)
-                    time.sleep(1)  # Small delay to avoid Telegram rate limits
+                    time.sleep(1)
 
             except Exception as e:
                 logger.warning(f"שגיאה בבדיקת {name}: {e}")
+
+        # Check whale wallets
+        for name, wallet in WHALE_WALLETS.items():
+            try:
+                trades = get_recent_trades(wallet, limit=5)
+                for t in trades:
+                    tid = t.get("transactionHash", t.get("id", ""))
+                    if not tid or tid in self.seen_ids:
+                        continue
+
+                    self.seen_ids.add(tid)
+                    new_trades_found = True
+
+                    signal = _parse_trade(t, name)
+                    if signal is None:
+                        continue
+
+                    signal["trader_type"] = "whale"
+                    logger.info(
+                        f"🐋 [{name}] עסקת לווייתן: {signal['market_question'][:60]} | "
+                        f"{signal['outcome']} @ {signal['price']:.3f} | ${signal['usd_value']:.0f}"
+                    )
+                    self.callback(signal)
+                    time.sleep(1)
+
+            except Exception as e:
+                logger.warning(f"שגיאה בבדיקת לווייתן {name}: {e}")
 
         if new_trades_found:
             self._save_seen()
