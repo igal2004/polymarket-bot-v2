@@ -1,8 +1,12 @@
+"""
+telegram_bot.py — בוט מומחים פולימרקט
+מריץ שרת Flask לקבלת webhook + לולאת מעקב ברקע לסריקת ארנקי מומחים.
+"""
 _PENDING_TRADES = {}
 
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+import threading
+import time
 import logging
 import datetime
 import pytz
@@ -10,22 +14,34 @@ import os
 import json
 import requests as req
 from flask import Flask, request
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, DRY_RUN, WALLET_ADDRESS,
-    ENFORCE_BALANCE_CHECK, MAX_SINGLE_TRADE_PERCENT, DAILY_REPORT_HOUR, DAILY_REPORT_MINUTE
+    ENFORCE_BALANCE_CHECK, MAX_SINGLE_TRADE_PERCENT, DAILY_REPORT_HOUR, DAILY_REPORT_MINUTE,
+    POLL_INTERVAL_SECONDS
 )
 from polymarket_client import get_wallet_usdc_balance
 from portfolio import get_portfolio_summary
 from dry_run_journal import format_summary_message, format_trades_list, record_trade
+from tracker import ExpertTracker
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 logger = logging.getLogger(__name__)
 ISRAEL_TZ = pytz.timezone("Asia/Jerusalem")
+
+# Global event loop reference so the background thread can schedule coroutines
+_main_loop: asyncio.AbstractEventLoop = None
+_ptb_app: Application = None
+
 
 def _store_pending(signal: dict) -> str:
     """Store signal in memory and return a short key."""
     key = signal['trade_id'][:10]
     _PENDING_TRADES[key] = signal
-    # Keep only last 50 entries
     if len(_PENDING_TRADES) > 50:
         oldest_keys = list(_PENDING_TRADES.keys())[:-50]
         for k in oldest_keys:
@@ -33,7 +49,7 @@ def _store_pending(signal: dict) -> str:
     return key
 
 
-# --- Command Handlers ---
+# ─── Command Handlers ────────────────────────────────────────────────────────
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     mode = "DRY RUN (בדיקה)" if DRY_RUN else "מסחר אמיתי"
@@ -52,7 +68,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    from config import EXPERT_WALLETS, POLL_INTERVAL_SECONDS
+    from config import EXPERT_WALLETS
     mode = "DRY RUN" if DRY_RUN else "מסחר אמיתי"
     balance = get_wallet_usdc_balance(WALLET_ADDRESS)
     max_per_trade = balance * MAX_SINGLE_TRADE_PERCENT / 100 if balance > 0 else 0
@@ -84,7 +100,7 @@ async def cmd_ping(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     now = datetime.datetime.now(ISRAEL_TZ).strftime("%H:%M:%S")
     mode = "DRY RUN" if DRY_RUN else "מסחר אמיתי"
     await update.message.reply_text(
-        f"🟢 *בוט פולימרקט פעיל!*\n\nשעה: {now}\nמצב: {mode}",
+        f"🟢 *הבוט פעיל!*\n\nשעה: {now}\nמצב: {mode}",
         parse_mode="Markdown"
     )
 
@@ -104,7 +120,7 @@ async def cmd_dryrun_trades(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 
-# --- Core Logic ---
+# ─── Core Logic ──────────────────────────────────────────────────────────────
 
 def check_wallet_protection(trade_amount_usd: float) -> tuple:
     if not ENFORCE_BALANCE_CHECK:
@@ -120,7 +136,8 @@ def check_wallet_protection(trade_amount_usd: float) -> tuple:
     return True, ""
 
 
-async def send_trade_alert(app, signal: dict):
+async def send_trade_alert(signal: dict):
+    """Sends a trade alert message to Telegram. Called from the background thread via run_coroutine_threadsafe."""
     from config import DEFAULT_TRADE_AMOUNT_USD
 
     expert = signal["expert_name"]
@@ -138,7 +155,6 @@ async def send_trade_alert(app, signal: dict):
     signal['timestamp'] = datetime.datetime.utcnow().isoformat()
     now_il = datetime.datetime.now(ISRAEL_TZ).strftime("%H:%M")
 
-    # Store in memory
     short_key = _store_pending(signal)
 
     price_pct = price * 100
@@ -164,32 +180,54 @@ async def send_trade_alert(app, signal: dict):
         f"🔗 [פתח שוק]({url})"
     )
 
-    # callback_data must be <= 64 chars — use only the short_key
     keyboard = InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ אשר עסקה", callback_data=f"ok|{short_key}"),
         InlineKeyboardButton("❌ בטל", callback_data=f"no|{short_key}"),
     ]])
 
     try:
-        await app.bot.send_message(
+        await _ptb_app.bot.send_message(
             chat_id=TELEGRAM_CHAT_ID, text=text,
             parse_mode="Markdown", reply_markup=keyboard,
             disable_web_page_preview=True
         )
-        logger.info(f"התראה נשלחה, key={short_key}, pending={len(_PENDING_TRADES)}")
+        logger.info(f"התראה נשלחה, key={short_key}, expert={expert}")
     except Exception as e:
         logger.error(f"שגיאה בשליחת התראה: {e}")
 
 
+def _on_new_trade(signal: dict):
+    """Callback from ExpertTracker (runs in background thread). Schedules the async alert."""
+    if _main_loop is None or _ptb_app is None:
+        logger.warning("לולאת האירועים עדיין לא מוכנה, מדלג על התראה")
+        return
+    future = asyncio.run_coroutine_threadsafe(send_trade_alert(signal), _main_loop)
+    try:
+        future.result(timeout=30)
+    except Exception as e:
+        logger.error(f"שגיאה בשליחת התראה מהחוט הרקע: {e}")
+
+
+def _tracker_loop():
+    """Background thread: runs ExpertTracker.check_once() every POLL_INTERVAL_SECONDS."""
+    logger.info(f"לולאת מעקב מומחים מתחילה (כל {POLL_INTERVAL_SECONDS} שניות)")
+    tracker = ExpertTracker(on_new_trade_callback=_on_new_trade)
+    while True:
+        try:
+            tracker.check_once()
+        except Exception as e:
+            logger.error(f"שגיאה בלולאת המעקב: {e}")
+        time.sleep(POLL_INTERVAL_SECONDS)
+
+
+# ─── Callback Handler ─────────────────────────────────────────────────────────
+
 async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    # Answer immediately to stop the button spinner
     await query.answer()
 
     try:
         data = query.data
-        logger.info(f"Callback received: {data}, pending keys: {list(_PENDING_TRADES.keys())}")
-
         parts = data.split('|')
         if len(parts) < 2:
             await query.edit_message_text("❌ נתוני כפתור לא תקינים.")
@@ -197,11 +235,9 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
         action = parts[0]
         short_key = parts[1]
-
         signal = _PENDING_TRADES.get(short_key)
 
         if signal is None:
-            logger.warning(f"Key {short_key} not found in pending. Available: {list(_PENDING_TRADES.keys())}")
             await query.edit_message_text(
                 "⚠️ *פג תוקף ההתראה*\n\n"
                 "הבוט הופעל מחדש ואיבד את נתוני העסקה.\n"
@@ -255,7 +291,6 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
 
-        # Remove from memory after handling
         _PENDING_TRADES.pop(short_key, None)
 
     except Exception as e:
@@ -266,13 +301,11 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             pass
 
 
-# --- Scheduled Jobs ---
+# ─── Scheduled Jobs ───────────────────────────────────────────────────────────
 
 async def validate_expert_wallets_job(ctx: ContextTypes.DEFAULT_TYPE):
     from config import EXPERT_WALLETS
-    valid = []
-    invalid = []
-    inactive = []
+    valid, invalid, inactive = [], [], []
     for name, wallet in EXPERT_WALLETS.items():
         try:
             if not wallet.startswith("0x") or len(wallet) != 42:
@@ -323,25 +356,62 @@ async def daily_report_job(ctx: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-# --- Flask App for Webhook ---
 
-app = Flask(__name__)
-ptb_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+# ─── Main Entry Point ─────────────────────────────────────────────────────────
 
-# Register handlers
-ptb_app.add_handler(CommandHandler("p_ping", cmd_ping))
-ptb_app.add_handler(CommandHandler("p_start", cmd_start))
-ptb_app.add_handler(CommandHandler("p_status", cmd_status))
-ptb_app.add_handler(CommandHandler("p_portfolio", cmd_portfolio))
-ptb_app.add_handler(CommandHandler("p_report", cmd_report))
-ptb_app.add_handler(CommandHandler("p_validate", cmd_validate))
-ptb_app.add_handler(CommandHandler("p_dryrun", cmd_dryrun))
-ptb_app.add_handler(CommandHandler("p_dryrun_trades", cmd_dryrun_trades))
-ptb_app.add_handler(CommandHandler("cutdry", cmd_dryrun))
-ptb_app.add_handler(CallbackQueryHandler(handle_callback))
+async def main():
+    global _main_loop, _ptb_app
 
-@app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=['POST'])
-async def webhook():
-    update = Update.de_json(request.get_json(force=True), ptb_app.bot)
-    await ptb_app.process_update(update)
-    return "ok"
+    _main_loop = asyncio.get_running_loop()
+
+    # Build the PTB application
+    _ptb_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+    # Register handlers
+    _ptb_app.add_handler(CommandHandler("p_ping", cmd_ping))
+    _ptb_app.add_handler(CommandHandler("start", cmd_start))
+    _ptb_app.add_handler(CommandHandler("p_start", cmd_start))
+    _ptb_app.add_handler(CommandHandler("p_status", cmd_status))
+    _ptb_app.add_handler(CommandHandler("p_portfolio", cmd_portfolio))
+    _ptb_app.add_handler(CommandHandler("p_report", cmd_report))
+    _ptb_app.add_handler(CommandHandler("p_validate", cmd_validate))
+    _ptb_app.add_handler(CommandHandler("p_dryrun", cmd_dryrun))
+    _ptb_app.add_handler(CommandHandler("p_dryrun_trades", cmd_dryrun_trades))
+    _ptb_app.add_handler(CommandHandler("cutdry", cmd_dryrun))
+    _ptb_app.add_handler(CallbackQueryHandler(handle_callback))
+
+    # Start the background tracker thread
+    tracker_thread = threading.Thread(target=_tracker_loop, daemon=True, name="expert-tracker")
+    tracker_thread.start()
+    logger.info("חוט מעקב מומחים הופעל")
+
+    # Initialize and start PTB (polling mode — no webhook needed)
+    await _ptb_app.initialize()
+    await _ptb_app.start()
+
+    # Send startup message
+    try:
+        now_il = datetime.datetime.now(ISRAEL_TZ).strftime("%H:%M:%S")
+        await _ptb_app.bot.send_message(
+            chat_id=TELEGRAM_CHAT_ID,
+            text=f"🟢 *בוט פולימרקט הופעל*\n\nשעה: {now_il}\nמצב: {'DRY RUN' if DRY_RUN else 'מסחר אמיתי'}\nמעקב: {len(__import__('config').EXPERT_WALLETS)} מומחים",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.warning(f"לא ניתן לשלוח הודעת הפעלה: {e}")
+
+    # Run polling
+    logger.info("מתחיל polling...")
+    await _ptb_app.updater.start_polling(drop_pending_updates=True)
+
+    # Keep running forever
+    try:
+        await asyncio.Event().wait()
+    finally:
+        await _ptb_app.updater.stop()
+        await _ptb_app.stop()
+        await _ptb_app.shutdown()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
