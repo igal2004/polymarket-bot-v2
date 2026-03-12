@@ -4,13 +4,30 @@ dry_run_journal.py - יומן עסקאות מדומות (DRY RUN) עם מעקב 
 import json
 import os
 import logging
+import threading
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# Use /tmp for Railway compatibility (persists during session)
-JOURNAL_FILE = "/tmp/polymarket_dry_run_journal.json"
-BALANCE_FILE = "/tmp/polymarket_sim_balance.json"
+# Use /app for Railway persistence (survives restarts), fallback to /tmp
+def _get_storage_dir():
+    """Find a writable directory that persists across restarts."""
+    for d in ["/app/data", "/app", "/data", "/tmp"]:
+        try:
+            os.makedirs(d, exist_ok=True)
+            test_file = os.path.join(d, ".write_test")
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.remove(test_file)
+            logger.info("DRY RUN storage directory: %s", d)
+            return d
+        except Exception:
+            continue
+    return "/tmp"
+
+_STORAGE_DIR = _get_storage_dir()
+JOURNAL_FILE = os.path.join(_STORAGE_DIR, "polymarket_dry_run_journal.json")
+BALANCE_FILE = os.path.join(_STORAGE_DIR, "polymarket_sim_balance.json")
 
 # Starting simulated balance — matches real wallet at bot launch
 INITIAL_SIM_BALANCE = 323.46
@@ -32,6 +49,35 @@ def _save(trades):
             json.dump(trades, f, ensure_ascii=False, indent=2)
     except Exception as e:
         logger.warning("שגיאה בשמירת יומן: %s", e)
+
+
+def _send_telegram_backup(trades, balance_data):
+    """Send a silent backup of all DRY RUN data to Telegram. Runs in background thread."""
+    try:
+        import requests as _req
+        from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+        backup_data = {
+            "_backup": True,
+            "trades": trades,
+            "balance": balance_data
+        }
+        backup_json = json.dumps(backup_data, ensure_ascii=False)
+        # Split into chunks if too long (Telegram max 4096 chars)
+        max_len = 3800
+        chunks = [backup_json[i:i+max_len] for i in range(0, len(backup_json), max_len)]
+        total = len(chunks)
+        for idx, chunk in enumerate(chunks, 1):
+            part_label = f" ({idx}/{total})" if total > 1 else ""
+        text = f"💾 *DRY RUN Backup{part_label}*\n`{chunk}`"
+        _req.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={"chat_id": TELEGRAM_CHAT_ID, "text": text,
+                  "parse_mode": "Markdown", "disable_notification": True},
+            timeout=10
+        )
+        logger.info("DRY RUN backup sent to Telegram (%d trades)", len(trades))
+    except Exception as e:
+        logger.warning("שגיאה בשליחת גיבוי לטלגרם: %s", e)
 
 
 def _load_balance():
@@ -85,6 +131,12 @@ def record_trade(signal, amount_usd):
     trades.append(entry)
     _save(trades)
     logger.info("יומן DRY RUN: עסקה #%s נשמרה, יתרה מדומה: $%.2f", entry["id"], bal_data["balance"])
+    # Send silent backup to Telegram in background (non-blocking)
+    threading.Thread(
+        target=_send_telegram_backup,
+        args=(trades, bal_data),
+        daemon=True
+    ).start()
     return entry["id"], bal_data["balance"]
 
 
