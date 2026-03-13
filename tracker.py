@@ -38,9 +38,7 @@ def get_recent_trades(wallet: str, limit: int = 10) -> list:
 
 def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple:
     """Returns (question, url, end_date, condition_id)."""
-    if title and slug:
-        url = f"https://polymarket.com/event/{slug}"
-        return title, url, None, None
+    # Always try asset_id first — it gives us end_date reliably
     if asset_id:
         try:
             r = requests.get(
@@ -52,14 +50,45 @@ def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple
                 data = r.json()
                 if isinstance(data, list) and data:
                     m = data[0]
-                    q = m.get("question", m.get("title", "שוק לא ידוע"))
-                    s = m.get("slug", "")
+                    q = m.get("question", m.get("title", title or "שוק לא ידוע"))
+                    s = m.get("slug", slug or "")
                     url = f"https://polymarket.com/event/{s}" if s else "https://polymarket.com"
-                    end_date = m.get("endDateIso") or m.get("endDate", "")[:10] if m.get("endDate") else None
+                    # Try multiple end_date fields
+                    end_date = (
+                        m.get("endDateIso")
+                        or (m.get("endDate", "")[:10] if m.get("endDate") else None)
+                        or m.get("end_date_iso")
+                        or m.get("closingTime", "")[:10] if m.get("closingTime") else None
+                    )
                     condition_id = m.get("conditionId", "")
                     return q, url, end_date, condition_id
         except Exception:
             pass
+    # Fallback: if we have title+slug but no asset_id, try searching by slug
+    if slug:
+        try:
+            r = requests.get(
+                "https://gamma-api.polymarket.com/events",
+                params={"slug": slug},
+                timeout=10
+            )
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list) and data:
+                    ev = data[0]
+                    url = f"https://polymarket.com/event/{slug}"
+                    # Try to get end_date from event or its markets
+                    end_date = ev.get("endDate", "")[:10] if ev.get("endDate") else None
+                    if not end_date and ev.get("markets"):
+                        first_mkt = ev["markets"][0]
+                        end_date = first_mkt.get("endDate", "")[:10] if first_mkt.get("endDate") else None
+                    q = title or ev.get("title", "שוק לא ידוע")
+                    return q, url, end_date, ""
+        except Exception:
+            pass
+    # Last resort: return what we have without end_date
+    if title and slug:
+        return title, f"https://polymarket.com/event/{slug}", None, None
     return "שוק לא ידוע", "https://polymarket.com", None, None
 
 

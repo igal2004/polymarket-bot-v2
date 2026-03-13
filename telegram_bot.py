@@ -203,10 +203,12 @@ async def cmd_audit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
     try:
         import subprocess as _sp
+        import os as _os
+        _bot_dir = _os.path.dirname(_os.path.abspath(__file__))
         result = _sp.run(
             ["python3.11", "audit_bot.py", "--silent"],
             capture_output=True, text=True, timeout=60,
-            cwd="/app"
+            cwd=_bot_dir
         )
         output = result.stdout
         passed = output.count("[PASS]")
@@ -942,11 +944,12 @@ async def main():
                 day_name = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"][now.weekday()]
 
                 # Run audit_bot.py as subprocess and capture output
-                import subprocess as _sp
+                import subprocess as _sp, os as _os
+                _bot_dir = _os.path.dirname(_os.path.abspath(__file__))
                 result = _sp.run(
                     ["python3.11", "audit_bot.py", "--silent"],
                     capture_output=True, text=True, timeout=60,
-                    cwd="/app"
+                    cwd=_bot_dir
                 )
                 output = result.stdout
 
