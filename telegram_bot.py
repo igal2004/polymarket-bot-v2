@@ -922,24 +922,28 @@ async def main():
 
     asyncio.ensure_future(_monthly_discovery_loop())
 
-    # ─── Circular Audit Loop (every Sunday at 08:00 Israel time) ─────────────
+    # ─── Circular Audit Loop (DAILY at 08:00 Israel time) ──────────────────
     async def _circular_audit_loop():
-        """מנגנון בקרה מעגלי — בודק שכל תכונה שסוכמה מיושמת. כל ראשון 08:00."""
+        """מנגנון בקרה מעגלי — בודק שכל תכונה שסוכמה מיושמת. כל יום 08:00."""
         await asyncio.sleep(120)  # First check after 2 minutes (startup)
+        _last_failed_count = -1  # Track changes between runs
         first_run = True
         while True:
             try:
                 now = datetime.datetime.now(ISRAEL_TZ)
                 if not first_run:
-                    # Calculate seconds until next Sunday 08:00
-                    days_until_sunday = (6 - now.weekday()) % 7
-                    if days_until_sunday == 0 and now.hour >= 8:
-                        days_until_sunday = 7
-                    next_sunday = now.replace(hour=8, minute=0, second=0, microsecond=0) + datetime.timedelta(days=days_until_sunday)
-                    wait_secs = (next_sunday - now).total_seconds()
+                    # Calculate seconds until NEXT DAY at 08:00
+                    next_run = now.replace(hour=8, minute=0, second=0, microsecond=0)
+                    if now.hour >= 8:
+                        next_run += datetime.timedelta(days=1)
+                    wait_secs = (next_run - now).total_seconds()
+                    logger.info(f"בקרה מעגלית: בדיקה הבאה ב-{next_run.strftime('%d/%m %H:%M')} ({wait_secs/3600:.1f} שעות)")
                     await asyncio.sleep(wait_secs)
 
                 first_run = False
+                now = datetime.datetime.now(ISRAEL_TZ)
+                now_str = now.strftime("%d/%m/%Y %H:%M")
+                day_name = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"][now.weekday()]
 
                 # Run audit_bot.py as subprocess and capture output
                 import subprocess as _sp
@@ -956,23 +960,38 @@ async def main():
                 warn_count = output.count("[WARN]")
                 total = passed + failed_count + warn_count
                 status_emoji = "✅" if failed_count == 0 else "❌"
-                now_str = datetime.datetime.now(ISRAEL_TZ).strftime("%d/%m/%Y %H:%M")
+
+                # Detect changes from last run
+                status_changed = (_last_failed_count != -1 and failed_count != _last_failed_count)
+                change_note = ""
+                if status_changed:
+                    if failed_count < _last_failed_count:
+                        change_note = f"\n📈 *שיפור!* כשלים קטנו מ-{_last_failed_count} ל-{failed_count}"
+                    else:
+                        change_note = f"\n📉 *הידרדות!* כשלים עלו מ-{_last_failed_count} ל-{failed_count}"
+                _last_failed_count = failed_count
 
                 lines = [
-                    f"{status_emoji} *דוח בקרה מעגלית — {now_str}*\n",
-                    f"📊 עברו: *{passed}/{total}* בדיקות",
-                    f"❌ כשלים: *{failed_count}* | ⚠️ אזהרות: *{warn_count}*\n",
+                    f"{status_emoji} *בקרה מעגלית יומית — {day_name} {now_str}*\n",
+                    f"📊 עברו: *{passed}/{total}* | ❌ כשלים: *{failed_count}* | ⚠️ אזהרות: *{warn_count}*",
                 ]
+
+                if change_note:
+                    lines.append(change_note)
 
                 if failed_count > 0:
                     fail_lines = [l for l in output.split("\n") if "[FAIL]" in l]
-                    lines.append("*🚨 כשלים שדורשים תיקון:*")
+                    lines.append("\n*🚨 כשלים שדורשים תיקון:*")
                     for fl in fail_lines:
                         lines.append(f"  {fl.strip()}")
+                    lines.append("\n⚠️ שלח /p\\_audit לפרטים ותיקון")
                 elif warn_count > 0:
-                    lines.append("⚠️ יש אזהרות הדורשות בדיקה")
+                    warn_lines = [l for l in output.split("\n") if "[WARN]" in l]
+                    lines.append("\n*⚠️ אזהרות:*")
+                    for wl in warn_lines:
+                        lines.append(f"  {wl.strip()}")
                 else:
-                    lines.append("🎉 *כל התכונות פועלות כמצופה!*")
+                    lines.append("🎉 כל התכונות פועלות כמצופה — המערכת תקינה!")
 
                 lines.append("\n_/p\\_audit לבדיקה ידנית_")
 
@@ -981,7 +1000,7 @@ async def main():
                     text="\n".join(lines),
                     parse_mode="Markdown"
                 )
-                logger.info(f"דוח בקרה מעגלית נשלח: {passed}/{total} עברו")
+                logger.info(f"בקרה יומית נשלחה: {passed}/{total} עברו, {failed_count} כשלים")
             except Exception as e:
                 logger.warning(f"שגיאה בבקרה מעגלית: {e}")
                 await asyncio.sleep(3600)
