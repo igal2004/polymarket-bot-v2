@@ -296,24 +296,65 @@ async def send_trade_alert(signal: dict):
     end_date_line = f"\n📅 פקיעת שוק: *{end_date}*" if end_date else ""
 
     # Expert risk profile tag + hot signal check
-    expert_tag = get_expert_tag(expert)
+    from expert_profiles import get_wallet_profile
+    profile = get_wallet_profile(expert)
     expert_warning = get_expert_warning(expert, price)
-    risk_profile_line = f"\n🏷️ פרופיל: *{expert_tag}*"
-    warning_line = f"\n{expert_warning}" if expert_warning else ""
     hot_header = get_hot_alert_header(expert)
     priority_rank = get_automation_priority_rank(expert)
     priority_line = f"\n🏆 עדיפות אוטומציה: *#{priority_rank}*" if priority_rank <= 8 else ""
 
+    # Build risk profile line — always show, even for unknown experts
+    if profile:
+        dom_risk = profile.get("dominant_risk", "MEDIUM")
+        risk_icon = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🔴"}.get(dom_risk, "⚪")
+        risk_label = {"LOW": "סיכון נמוך", "MEDIUM": "סיכון בינוני", "HIGH": "סיכון גבוה"}.get(dom_risk, "לא ידוע")
+        win_rate = profile.get("win_rate_pct")
+        wr_str = f" | הצלחה {win_rate:.0f}%" if win_rate is not None else ""
+        roi = profile.get("roi_pct")
+        roi_str = f" | ROI {roi:+.0f}%" if roi is not None else ""
+        size_tier = profile.get("size_tier", "")
+        size_icon = "🐋" if size_tier == "WHALE" else "🐟" if size_tier == "LARGE" else "🐠"
+        risk_profile_line = f"\n{risk_icon}{size_icon} *{risk_label}{wr_str}{roi_str}*"
+    else:
+        risk_profile_line = f"\n⚪ *מומחה חדש | בבדיקה*"
+
+    warning_line = f"\n{expert_warning}" if expert_warning else ""
+
+    # Investment recommendation based on expert profile
+    if profile:
+        auto_ok = profile.get("auto_approved", False)
+        win_r = profile.get("win_rate_pct") or 0
+        roi_v = profile.get("roi_pct") or 0
+        if profile.get("hot_signal"):
+            invest_rec = "\n🔥 *המלצה: כדאי מאוד להשקיע — לווייתן עם 100% הצלחה*"
+        elif auto_ok and win_r >= 65 and roi_v > 0:
+            invest_rec = "\n✅ *המלצה: כדאי להשקיע — פרופיל מצוין*"
+        elif auto_ok and win_r >= 50:
+            invest_rec = "\n🟡 *המלצה: שקול להשקיע — פרופיל סביר*"
+        elif not auto_ok:
+            invest_rec = "\n⚠️ *המלצה: זהירות — מומחה עם פרופיל מעורב, דרוש אישור ידני*"
+        else:
+            invest_rec = "\n🟠 *המלצה: השקע בזהירות — ביצועים חלשים בעבר*"
+    else:
+        invest_rec = "\n⚪ *המלצה: מומחה חדש — המתן לנתונים נוספים*"
+
     # Real-time price & gap analysis
     current_price = get_current_market_price(asset_id)
     gap_info = analyze_price_gap(price, current_price, outcome)
-    price_gap_line = ""
-    if gap_info["analysis"] and current_price is not None:
+    if current_price is not None:
         curr_pct = current_price * 100
         price_gap_line = (
             f"\n📊 מחיר נוכחי: *{current_price:.3f}* ({curr_pct:.1f}%)"
-            f"\n{gap_info['analysis']}"
         )
+        if gap_info["analysis"]:
+            price_gap_line += f"\n{gap_info['analysis']}"
+            # Add explicit gap-based recommendation
+            if gap_info.get("favorable") is True:
+                price_gap_line += "\n💡 *פער מחיר: כניסה טובה — מחיר נוח ביחס למומחה*"
+            elif gap_info.get("favorable") is False:
+                price_gap_line += "\n⚠️ *פער מחיר: כניסה יקרה — שקול להמתין*"
+    else:
+        price_gap_line = "\n📊 מחיר נוכחי: *לא זמין*"
 
     # Dynamic sizing label
     dynamic_line = f"\n🧠 סכום דינמי: *${trade_amount:.2f}* ({dynamic_label})" if dynamic_label else ""
@@ -325,6 +366,7 @@ async def send_trade_alert(signal: dict):
         f"🎯 כיוון: *{outcome}*\n"
         f"💵 מחיר מומחה: *{price:.3f}* ({price_pct:.1f}%) — {price_emoji}"
         f"{risk_profile_line}{warning_line}"
+        f"{invest_rec}"
         f"{price_gap_line}\n"
         f"💰 סכום {trader_label}: ${usd_val:.0f}"
         f"{dynamic_line}{priority_line}{balance_line}{end_date_line}\n\n"
