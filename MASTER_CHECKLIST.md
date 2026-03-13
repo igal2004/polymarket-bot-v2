@@ -118,3 +118,48 @@
 | 2026-03-13 | הוספת OPENAI_API_KEY ל-Railway של פולימרקט | Manus |
 | 2026-03-13 | הוספת דוח בקרה מעגלי שבועי | Manus |
 | 2026-03-13 | עדכון ספר הפעלה לשחזור מלא בדו"ח מאסטר | Manus |
+
+---
+
+## עדכון 13/03/2026 — 7 שיפורים אסטרטגיים (ניתוח קלוד)
+
+### שיפורים חדשים — פולימרקט
+
+| # | תכונה | תיאור | קובץ | סטטוס |
+|---|---|---|---|---|
+| P36 | 📉 פרש מחיר דינמי | +10% לעסקות >$50K, +20% לרגילות | `config.py`, `market_analysis.py` | ✅ |
+| P37 | 💧 נזילות מינימלית | חסימת שווקים עם נפח < $5,000 | `config.py`, `market_analysis.py` | ✅ |
+| P38 | ⚖️ Kelly + פרופיל סיכון | גודל פוזיציה: LOW×1.2, MED×1.0, HIGH×0.7 | `config.py`, `market_analysis.py` | ✅ |
+| P39 | 🛑 עצירת Drawdown | עצירה אוטומטית אם ירידה >30% מהשיא | `config.py`, `market_analysis.py`, `telegram_bot.py` | ✅ |
+| P40 | 🌊 קונברגנציה | הגדלת פוזיציה ×2 כש-3+ לווייתנים מסכימים | `convergence_detector.py`, `telegram_bot.py` | ✅ |
+| P41 | ⚡ WebSocket היברידי | מנסה WebSocket (latency ~1s), fallback ל-polling | `websocket_tracker.py` | ✅ |
+| P42 | 📡 Drift Detection | התראה אם win_rate משתנה >20% ב-30 יום | `market_analysis.py` | ✅ |
+
+### פרמטרים חדשים ב-config.py
+
+| פרמטר | ערך | שיפור |
+|---|---|---|
+| `MAX_SPREAD_PCT_DEFAULT` | 20% | P36 |
+| `MAX_SPREAD_PCT_LARGE` | 10% | P36 |
+| `LARGE_TRADE_THRESHOLD` | $50,000 | P36 |
+| `MIN_MARKET_VOLUME_USD` | $5,000 | P37 |
+| `KELLY_RISK_MULTIPLIERS` | low:1.2, med:1.0, high:0.7 | P38 |
+| `MAX_DRAWDOWN_PERCENT` | 30% | P39 |
+| `CONVERGENCE_MIN_WHALES` | 3 | P40 |
+| `CONVERGENCE_MULTIPLIER` | 2.0 | P40 |
+| `CONVERGENCE_WINDOW_HOURS` | 24 | P40 |
+| `DRIFT_DETECTION_DAYS` | 30 | P42 |
+| `DRIFT_ALERT_THRESHOLD` | 20% | P42 |
+
+### קבצים חדשים שנוספו
+
+| קובץ | תפקיד |
+|---|---|
+| `convergence_detector.py` | מנגנון זיהוי קונברגנציה + הגדלת פוזיציה |
+| `websocket_tracker.py` | מעקב היברידי WebSocket/polling |
+
+### עדכון היסטוריית שינויים
+
+| תאריך | שינוי |
+|---|---|
+| 2026-03-13 | 7 שיפורים אסטרטגיים מניתוח קלוד — פרש, נזילות, Kelly, Drawdown, קונברגנציה, WebSocket, Drift |

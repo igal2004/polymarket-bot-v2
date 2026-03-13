@@ -286,6 +286,26 @@ def check_wallet_protection(trade_amount_usd: float) -> tuple:
 
 async def send_trade_alert(signal: dict):
     """Sends a trade alert message to Telegram with enhanced analysis."""
+    # שיפור 4: בדיקת Drawdown — עצור אם הפסד גדול מדי
+    try:
+        from market_analysis import is_trading_halted, check_drawdown_halt, update_peak_balance
+        from polymarket_client import get_wallet_usdc_balance as _get_bal
+        from config import WALLET_ADDRESS as _WA
+        _bal = _get_bal(_WA)
+        if _bal is not None and _bal > 0:
+            update_peak_balance(_bal)
+            _halted, _halt_msg = check_drawdown_halt(_bal)
+            if _halted:
+                await _ptb_app.bot.send_message(
+                    chat_id=TELEGRAM_CHAT_ID,
+                    text=f"🛑 *מסחר הופסק אוטומטית — Drawdown!*\n{_halt_msg}",
+                    parse_mode="Markdown"
+                )
+                logger.warning(f"מסחר הופסק: {_halt_msg}")
+                return
+    except Exception as _dd_err:
+        logger.warning(f"שגיאה בבדיקת drawdown: {_dd_err}")
+
     from config import DEFAULT_TRADE_AMOUNT_USD
     from expert_profiles import get_expert_tag, get_expert_warning, get_hot_alert_header, get_automation_priority_rank
     from market_analysis import (
@@ -392,6 +412,23 @@ async def send_trade_alert(signal: dict):
     # Dynamic sizing label
     dynamic_line = f"\n🧠 סכום דינמי: *${trade_amount:.2f}* ({dynamic_label})" if dynamic_label else ""
 
+    # שיפור 5: קונברגנציה — הגדלת פוזיציה כש-3+ לווייתנים מסכימים
+    convergence_line = ""
+    try:
+        from convergence_detector import record_whale_entry, get_convergence_info
+        from config import CONVERGENCE_MULTIPLIER
+        record_whale_entry(signal)
+        conv_info = get_convergence_info(signal)
+        if conv_info:
+            trade_amount = round(trade_amount * CONVERGENCE_MULTIPLIER, 2)
+            convergence_line = (
+                f"\n🌊🌊🌊 *קונברגנציה! {conv_info['whale_count']} לווייתנים מסכימים!*"
+                f"\n👥 {', '.join(conv_info['whale_names'])}"
+                f"\n📈 פוזיציה הוגדלה ×{CONVERGENCE_MULTIPLIER} → ${trade_amount:.0f}"
+            )
+    except Exception as _conv_err:
+        logger.warning(f"שגיאה בקונברגנציה: {_conv_err}")
+
     text = (
         f"{hot_header}{alert_header}\n\n"
         f"👤 {trader_label}: *{expert}*\n"
@@ -402,6 +439,7 @@ async def send_trade_alert(signal: dict):
         f"{invest_rec}"
         f"{price_gap_line}\n"
         f"💰 סכום {trader_label}: ${usd_val:.0f}"
+        f"{convergence_line}"
         f"{dynamic_line}{priority_line}{balance_line}{end_date_line}\n\n"
         f"🔗 [פתח שוק]({url})"
     )
