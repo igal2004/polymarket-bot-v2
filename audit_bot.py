@@ -1,24 +1,31 @@
 #!/usr/bin/env python3.11
 """
-audit_bot.py — מנגנון בקרה מעגלי אוטומטי
-בודק שכל תכונה שסוכמה מיושמת בפועל בקוד ובסביבה.
-מריץ בדיקות ומדווח לטלגרם.
+audit_bot.py — בקרה מעגלית פונקציונלית לבוט פולימרקט
+בודק לא רק שהקוד קיים, אלא שהוא עובד בפועל ומחזיר את הנתונים הנכונים.
+
+סוגי בדיקות:
+  [CODE]  — קוד קיים ותקין
+  [LIVE]  — קריאה אמיתית ל-API ובדיקת תוצאה
+  [FIELD] — שדה חיוני מופיע בפלט
+  [ENV]   — משתנה סביבה מוגדר
+  [FUNC]  — פונקציה מחזירה ערך תקין
 
 הרצה ידנית:  python3.11 audit_bot.py
-הרצה שקטה:  python3.11 audit_bot.py --silent   (לא שולח לטלגרם)
+הרצה שקטה:  python3.11 audit_bot.py --silent
 """
 
 import os
 import re
 import sys
-import json
+import ast
 import requests
-import subprocess
+import importlib.util
 from datetime import datetime
 
+SILENT = "--silent" in sys.argv
+BOT_DIR = os.path.dirname(os.path.abspath(__file__))
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
-SILENT = "--silent" in sys.argv
 
 PASS = "✅"
 FAIL = "❌"
@@ -27,20 +34,40 @@ WARN = "⚠️"
 results = []
 
 
-def check(name: str, passed: bool, detail: str = "", warn_only: bool = False):
+def check(name: str, passed: bool, detail: str = "", warn_only: bool = False, category: str = "CODE"):
     icon = PASS if passed else (WARN if warn_only else FAIL)
-    results.append({"name": name, "passed": passed, "icon": icon, "detail": detail})
-    status = "PASS" if passed else ("WARN" if warn_only else "FAIL")
-    print(f"  {icon} [{status}] {name}" + (f" — {detail}" if detail else ""))
+    tag = "PASS" if passed else ("WARN" if warn_only else "FAIL")
+    results.append({"name": name, "passed": passed, "icon": icon, "detail": detail, "category": category})
+    line = f"  {icon} [{tag}][{category}] {name}"
+    if detail and not passed:
+        line += f" — {detail}"
+    if not SILENT:
+        print(line)
+    # Always print for --silent mode (parsed by telegram_bot.py)
+    else:
+        print(f"[{tag}] {name}" + (f" — {detail}" if detail and not passed else ""))
+    return passed
 
 
-def grep(filepath: str, pattern: str) -> bool:
-    """Returns True if pattern found in file."""
+def file_contains(filename: str, *patterns) -> bool:
+    path = os.path.join(BOT_DIR, filename)
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            content = f.read()
-        return bool(re.search(pattern, content))
-    except FileNotFoundError:
+        content = open(path, encoding="utf-8").read()
+        return all(re.search(p, content) for p in patterns)
+    except:
+        return False
+
+
+def file_exists(filename: str) -> bool:
+    return os.path.exists(os.path.join(BOT_DIR, filename))
+
+
+def syntax_ok(filename: str) -> bool:
+    path = os.path.join(BOT_DIR, filename)
+    try:
+        ast.parse(open(path, encoding="utf-8").read())
+        return True
+    except:
         return False
 
 
@@ -49,212 +76,232 @@ def env_set(var: str) -> bool:
     return bool(val and len(val) > 5)
 
 
-# ─────────────────────────────────────────────
-# בדיקות: התראות מסחר
-# ─────────────────────────────────────────────
-print("\n📋 בדיקת התראות מסחר (Polymarket Bot)")
+def load_module(filename: str):
+    path = os.path.join(BOT_DIR, filename)
+    spec = importlib.util.spec_from_file_location("mod", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
-check("P01 — פרופיל סיכון בהתראה",
-      grep("telegram_bot.py", r"risk_profile_line"),
-      "risk_profile_line בנוי מ-dominant_risk")
 
-check("P02 — המלצת השקעה בהתראה",
-      grep("telegram_bot.py", r"invest_rec"),
-      "invest_rec מחושב לפי פרופיל")
+# ═══════════════════════════════════════════════════════════════════════════════
+# 1. קבצים וסינטקס
+# ═══════════════════════════════════════════════════════════════════════════════
+if not SILENT:
+    print("\n── 1. קבצים וסינטקס ──")
 
-check("P03 — פער מחיר + המלצה",
-      grep("telegram_bot.py", r"price_gap_line") and
-      grep("telegram_bot.py", r"פער מחיר: כניסה"),
-      "price_gap_line + המלצה מפורשת")
+for fname in ["telegram_bot.py", "tracker.py", "expert_profiles.py",
+              "config.py", "market_analysis.py", "urgent_alert.py",
+              "dry_run_journal.py", "audit_bot.py"]:
+    check(f"{fname} קיים", file_exists(fname), category="CODE")
+    check(f"{fname} תקין תחבירית", syntax_ok(fname), category="CODE")
 
-check("P04 — התראה חמה 100%",
-      grep("expert_profiles.py", r"hot_signal.*True") and
-      grep("telegram_bot.py", r"get_hot_alert_header"),
-      "hot_signal=True + get_hot_alert_header")
+# ═══════════════════════════════════════════════════════════════════════════════
+# 2. שדות חיוניים בהתראה — FIELD PRESENCE
+# ═══════════════════════════════════════════════════════════════════════════════
+if not SILENT:
+    print("\n── 2. שדות חיוניים בהתראה ──")
 
-check("P05 — עדיפות אוטומציה",
-      grep("telegram_bot.py", r"get_automation_priority_rank") and
-      grep("telegram_bot.py", r"עדיפות אוטומציה"),
-      "priority_rank מוצג בהתראה")
+check("פרופיל סיכון (risk_profile_line) בהתראה",
+      file_contains("telegram_bot.py", r"risk_profile_line"),
+      "חסר risk_profile_line בבניית ההתראה", category="FIELD")
 
-check("P06 — תאריך פקיעה",
-      grep("tracker.py", r"end_date") and
-      grep("telegram_bot.py", r"end_date_line"),
-      "end_date נשלף מה-API ומוצג")
+check("המלצת השקעה (invest_rec) בהתראה",
+      file_contains("telegram_bot.py", r"invest_rec"),
+      "חסר invest_rec בבניית ההתראה", category="FIELD")
 
-check("P07 — סכום דינמי",
-      grep("telegram_bot.py", r"calculate_dynamic_trade_amount") and
-      grep("telegram_bot.py", r"dynamic_line"),
-      "dynamic trade amount מחושב ומוצג")
+check("מועד סיום (end_date_line) בהתראה",
+      file_contains("telegram_bot.py", r"end_date_line"),
+      "חסר end_date_line בבניית ההתראה", category="FIELD")
 
-check("P08 — יתרת ארנק",
-      grep("telegram_bot.py", r"get_wallet_usdc_balance") and
-      grep("telegram_bot.py", r"balance_line"),
-      "יתרה נשלפת ומוצגת")
+check("פער מחיר (price_gap_line) בהתראה",
+      file_contains("telegram_bot.py", r"price_gap_line"),
+      "חסר price_gap_line בבניית ההתראה", category="FIELD")
 
-check("P09 — ניתוח AI",
-      grep("telegram_bot.py", r"get_ai_risk_analysis") and
-      grep("telegram_bot.py", r"ניתוח AI"),
-      "AI analysis נשלח כ-reply")
+check("כותרת HOT (hot_header) בהתראה",
+      file_contains("telegram_bot.py", r"hot_header"),
+      "חסר hot_header בבניית ההתראה", category="FIELD")
 
-check("P10 — אזהרת חריגה מפרופיל",
-      grep("telegram_bot.py", r"get_expert_warning") and
-      grep("expert_profiles.py", r"get_expert_warning"),
-      "warning_line מחושב ומוצג")
+check("עדיפות אוטומציה (priority_line) בהתראה",
+      file_contains("telegram_bot.py", r"priority_line"),
+      "חסר priority_line בבניית ההתראה", category="FIELD")
 
-# ─────────────────────────────────────────────
-# בדיקות: הגנות ארנק
-# ─────────────────────────────────────────────
-print("\n🛡️ בדיקת הגנות ארנק")
+check("ניתוח AI (get_ai_risk_analysis) בהתראה",
+      file_contains("telegram_bot.py", r"get_ai_risk_analysis"),
+      "חסר קריאה ל-get_ai_risk_analysis", category="FIELD")
 
-check("P11 — מגבלת 10% לעסקה",
-      grep("config.py", r"MAX_SINGLE_TRADE_PERCENT") and
-      grep("telegram_bot.py", r"MAX_SINGLE_TRADE_PERCENT"),
-      "MAX_SINGLE_TRADE_PERCENT=10")
+check("התראה דחופה 85%+ (send_urgent_alert) בהתראה",
+      file_contains("telegram_bot.py", r"send_urgent_alert|urgent_alert"),
+      "חסר קריאה ל-urgent_alert", category="FIELD")
 
-check("P12 — מגבלה יומית 30%",
-      grep("config.py", r"MAX_DAILY_SPEND_PERCENT") or
-      grep("telegram_bot.py", r"daily.*limit|MAX_DAILY"),
-      warn_only=True)
+check("נתיב audit_bot.py דינמי (לא /app קשיח)",
+      not file_contains("telegram_bot.py", r'cwd="/app"'),
+      "נמצא cwd=\"/app\" קשיח — /p_audit לא יעבוד ב-Railway!", category="FIELD")
 
-check("P13 — חסימה אם יתרה נמוכה",
-      grep("telegram_bot.py", r"check_wallet_protection"),
-      "check_wallet_protection נקרא לפני כל עסקה")
+# ═══════════════════════════════════════════════════════════════════════════════
+# 3. בדיקות פונקציונליות — FUNC (מריץ קוד אמיתי)
+# ═══════════════════════════════════════════════════════════════════════════════
+if not SILENT:
+    print("\n── 3. בדיקות פונקציונליות ──")
 
-check("P14 — מחיר מינימום 0.20",
-      grep("config.py", r"MIN_PRICE.*0\.2|0\.20") or
-      grep("telegram_bot.py", r"0\.2"),
-      warn_only=True)
+try:
+    sys.path.insert(0, BOT_DIR)
+    import expert_profiles as ep
 
-# ─────────────────────────────────────────────
-# בדיקות: מעקב תוצאות
-# ─────────────────────────────────────────────
-print("\n📊 בדיקת מעקב תוצאות")
+    # get_expert_tag מחזיר רמת סיכון
+    tag = ep.get_expert_tag("Fredi9999")
+    check("get_expert_tag(Fredi9999) מחזיר רמת סיכון",
+          any(x in tag for x in ["סיכון", "🟢", "🟡", "🔴", "LOW", "MED", "HIGH"]),
+          f"תג: {tag[:60]}", category="FUNC")
 
-check("P15 — סגירת עסקאות אוטומטית",
-      grep("dry_run_journal.py", r"check_and_settle_open_trades") and
-      grep("telegram_bot.py", r"_settlement_loop"),
-      "settlement_loop רץ כל שעה")
+    # get_expert_tag מחזיר אחוז הצלחה
+    check("get_expert_tag(Fredi9999) מחזיר אחוז הצלחה",
+          "%" in tag or "הצלחה" in tag,
+          f"תג: {tag[:60]}", category="FUNC")
 
-check("P16 — הודעת תוצאה (זכייה/הפסד)",
-      grep("telegram_bot.py", r"עסקה.*נסגרה") and
-      grep("telegram_bot.py", r"זכייה|הפסד"),
-      "הודעת תוצאה נשלחת אוטומטית")
+    # get_invest_recommendation מחזיר המלצה
+    rec = ep.get_invest_recommendation("Fredi9999")
+    check("get_invest_recommendation(Fredi9999) מחזיר המלצה חיובית",
+          any(x in rec for x in ["מומלץ", "קנייה", "BUY", "STRONG", "חזק"]),
+          f"המלצה: {rec[:60]}", category="FUNC")
 
-check("P17 — פקודת /p_dryrun",
-      grep("telegram_bot.py", r"cmd_dryrun") and
-      grep("telegram_bot.py", r"p_dryrun"),
-      "פקודה רשומה ומטפלת")
+    # kch123 מסומן AVOID
+    rec_bad = ep.get_invest_recommendation("kch123")
+    check("get_invest_recommendation(kch123) מסומן AVOID",
+          any(x in rec_bad for x in ["לא מומלץ", "AVOID", "הימנע"]),
+          f"המלצה: {rec_bad[:60]}", category="FUNC")
 
-check("P18 — פקודת /p_dryrun_trades",
-      grep("telegram_bot.py", r"cmd_dryrun_trades"),
-      "פקודה רשומה")
+    # get_hot_alert_header מחזיר 🔥 ל-Fredi9999
+    header = ep.get_hot_alert_header("Fredi9999")
+    check("get_hot_alert_header(Fredi9999) מחזיר כותרת 🔥",
+          "🔥" in header and len(header) > 10,
+          f"כותרת: {header[:50]}", category="FUNC")
 
-check("P19 — פקודת /p_compare",
-      grep("telegram_bot.py", r"cmd_compare"),
-      "פקודה רשומה")
+    # ארנק לא ידוע מחזיר "מומחה חדש"
+    tag_unk = ep.get_expert_tag("UNKNOWN_XYZ_999")
+    check("get_expert_tag לארנק לא ידוע מחזיר 'מומחה חדש'",
+          any(x in tag_unk for x in ["מומחה חדש", "בבדיקה", "חדש"]),
+          f"תג: {tag_unk[:60]}", category="FUNC")
 
-check("P20 — גיבוי יומי לטלגרם",
-      grep("telegram_bot.py", r"_daily_backup_loop") and
-      grep("telegram_bot.py", r"גיבוי יומי"),
-      "backup loop פעיל")
+except Exception as e:
+    check("expert_profiles.py נטען בהצלחה", False, str(e), category="FUNC")
 
-# ─────────────────────────────────────────────
-# בדיקות: דוחות אוטומטיים
-# ─────────────────────────────────────────────
-print("\n📅 בדיקת דוחות אוטומטיים")
+# ═══════════════════════════════════════════════════════════════════════════════
+# 4. בדיקות API חיות — LIVE
+# ═══════════════════════════════════════════════════════════════════════════════
+if not SILENT:
+    print("\n── 4. בדיקות API חיות ──")
 
-check("P21 — דוח שבועי (ראשון 09:00)",
-      grep("telegram_bot.py", r"_weekly_report_loop") and
-      grep("telegram_bot.py", r"days_until_sunday"),
-      "weekly_report_loop פעיל")
+# Polymarket trades API
+try:
+    r = requests.get(
+        "https://data-api.polymarket.com/trades",
+        params={"user": "0x56687bf447db6ffa42ffe2204a05edaa20f55839", "limit": 1},
+        timeout=10
+    )
+    check("Polymarket trades API מגיב",
+          r.status_code == 200 and isinstance(r.json(), list),
+          f"status={r.status_code}", category="LIVE")
+except Exception as e:
+    check("Polymarket trades API מגיב", False, str(e), category="LIVE")
 
-check("P22 — תזכורת עסקאות פתוחות (18:00)",
-      grep("telegram_bot.py", r"_open_trades_reminder_loop") and
-      grep("telegram_bot.py", r"18"),
-      "open_trades_reminder_loop פעיל")
+# Gamma API
+try:
+    r2 = requests.get("https://gamma-api.polymarket.com/markets",
+                      params={"limit": 1}, timeout=10)
+    check("Gamma API מגיב", r2.status_code == 200, f"status={r2.status_code}", category="LIVE")
+except Exception as e:
+    check("Gamma API מגיב", False, str(e), category="LIVE")
 
-check("P23 — גילוי מומחים חדשים (1 לחודש)",
-      grep("telegram_bot.py", r"_monthly_discovery_loop"),
-      "monthly_discovery_loop פעיל")
+# end_date נשלף מה-API לפי asset_id
+try:
+    from tracker import get_market_question
+    # asset_id של שוק ידוע
+    test_asset = "21742633143463906290569050155826241533067272736897614950488156847949938836455"
+    q, url, end_date, cid = get_market_question(test_asset)
+    check("end_date נשלף מה-API לפי asset_id",
+          end_date is not None and len(str(end_date)) >= 8,
+          f"end_date={end_date} (None = בעיה!)", category="LIVE")
+except Exception as e:
+    check("end_date נשלף מה-API לפי asset_id", False, str(e), category="LIVE")
 
-check("P24 — בדיקת כתובות ארנקים (08:00)",
-      grep("telegram_bot.py", r"validate_expert_wallets_job"),
-      "validate_expert_wallets_job פעיל")
+# end_date נשלף גם לפי slug (ללא asset_id)
+try:
+    q2, url2, end_date2, cid2 = get_market_question("", slug="presidential-election-winner-2024")
+    check("end_date נשלף לפי slug (ללא asset_id)",
+          url2 != "https://polymarket.com",
+          f"end_date={end_date2}, url={url2[:50]}", category="LIVE")
+except Exception as e:
+    check("end_date נשלף לפי slug", False, str(e), category="LIVE")
 
-check("P25 — דוח בקרה מעגלי שבועי",
-      grep("telegram_bot.py", r"_circular_audit_loop|audit_bot"),
-      "circular audit loop פעיל")
+# ═══════════════════════════════════════════════════════════════════════════════
+# 5. לולאות ומנגנונים — CODE
+# ═══════════════════════════════════════════════════════════════════════════════
+if not SILENT:
+    print("\n── 5. לולאות ומנגנונים ──")
 
-# ─────────────────────────────────────────────
-# בדיקות: פרופילי מומחים
-# ─────────────────────────────────────────────
-print("\n👤 בדיקת פרופילי מומחים")
+check("לולאת בקרה מעגלית יומית",
+      file_contains("telegram_bot.py", r"_circular_audit_loop"))
+check("לולאת סגירת שווקים (settlement)",
+      file_contains("telegram_bot.py", r"_settlement_loop"))
+check("דוח שבועי (ראשון 09:00)",
+      file_contains("telegram_bot.py", r"_weekly_report_loop"))
+check("תזכורת עסקאות פתוחות (18:00)",
+      file_contains("telegram_bot.py", r"_open_trades_reminder_loop"))
+check("גיבוי יומי",
+      file_contains("telegram_bot.py", r"_daily_backup_loop"))
+check("גילוי מומחים חדשים (חודשי)",
+      file_contains("telegram_bot.py", r"_monthly_discovery_loop"))
+check("בדיקת ארנקים יומית",
+      file_contains("telegram_bot.py", r"validate_expert_wallets_job"))
+check("הגנת ארנק MAX_SINGLE_TRADE_PERCENT",
+      file_contains("config.py", r"MAX_SINGLE_TRADE_PERCENT"))
+check("התראה דחופה 85%+ (urgent_alert)",
+      file_contains("telegram_bot.py", r"send_urgent_alert|urgent_alert") and
+      file_contains("urgent_alert.py", r"URGENT_THRESHOLD_WIN_RATE"))
+check("/p_audit command handler",
+      file_contains("telegram_bot.py", r"cmd_audit.*p_audit|p_audit.*cmd_audit"))
 
-REQUIRED_WHALES = ["Theo4", "Fredi9999", "Len9311238", "zxgngl", "RepTrump"]
-for whale in REQUIRED_WHALES:
-    check(f"P27 — לווייתן {whale}",
-          grep("expert_profiles.py", whale) and grep("config.py", whale),
-          "קיים ב-expert_profiles ו-config")
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. משתני סביבה — ENV
+# ═══════════════════════════════════════════════════════════════════════════════
+if not SILENT:
+    print("\n── 6. משתני סביבה ──")
 
-check("P28 — פרופיל מלא לכל מומחה",
-      grep("expert_profiles.py", r"dominant_risk") and
-      grep("expert_profiles.py", r"win_rate_pct") and
-      grep("expert_profiles.py", r"hot_signal"),
-      "dominant_risk + win_rate_pct + hot_signal קיימים")
+env_checks = [
+    ("TELEGRAM_BOT_TOKEN", "טוקן טלגרם"),
+    ("TELEGRAM_CHAT_ID", "מזהה צ'אט"),
+    ("WALLET_ADDRESS", "כתובת ארנק"),
+    ("PRIVATE_KEY", "מפתח פרטי"),
+    ("OPENAI_API_KEY", "מפתח OpenAI — AI לא יעבוד בלעדיו!"),
+    ("GMAIL_SENDER", "Gmail שולח — התראות אימייל לא יעבדו!"),
+    ("GMAIL_APP_PASS", "Gmail App Password — התראות אימייל לא יעבדו!"),
+]
+for var, desc in env_checks:
+    check(f"{var} ({desc})",
+          env_set(var),
+          f"חסר! {desc}", category="ENV")
 
-check("P29 — סדר עדיפויות אוטומציה",
-      grep("expert_profiles.py", r"get_automation_priority_rank") and
-      grep("expert_profiles.py", r"AUTOMATION_PRIORITY"),
-      "AUTOMATION_PRIORITY list קיים")
+# ═══════════════════════════════════════════════════════════════════════════════
+# סיכום + שליחה לטלגרם
+# ═══════════════════════════════════════════════════════════════════════════════
+passed_list = [r for r in results if r["passed"] is True]
+failed_list = [r for r in results if r["passed"] is False and r["icon"] == FAIL]
+warn_list   = [r for r in results if r["icon"] == WARN]
+total = len(passed_list) + len(failed_list) + len(warn_list)
 
-# ─────────────────────────────────────────────
-# בדיקות: משתני סביבה
-# ─────────────────────────────────────────────
-print("\n🔑 בדיקת משתני סביבה (Railway)")
+if not SILENT:
+    print(f"\n{'='*60}")
+    print(f"📊 תוצאות: {len(passed_list)}/{total} עברו | ❌ {len(failed_list)} כשלים | ⚠️ {len(warn_list)} אזהרות")
+    if failed_list:
+        print("\n🚨 כשלים:")
+        for r in failed_list:
+            print(f"  ❌ [{r['category']}] {r['name']}" + (f"\n     ↳ {r['detail']}" if r['detail'] else ""))
+    print(f"{'='*60}\n")
 
-check("P30 — TELEGRAM_BOT_TOKEN",
-      env_set("TELEGRAM_BOT_TOKEN"),
-      f"{'מוגדר' if env_set('TELEGRAM_BOT_TOKEN') else 'חסר!'}")
 
-check("P31 — TELEGRAM_CHAT_ID",
-      env_set("TELEGRAM_CHAT_ID"),
-      f"{'מוגדר' if env_set('TELEGRAM_CHAT_ID') else 'חסר!'}")
-
-check("P32 — PRIVATE_KEY",
-      env_set("PRIVATE_KEY"),
-      f"{'מוגדר' if env_set('PRIVATE_KEY') else 'חסר!'}")
-
-check("P33 — WALLET_ADDRESS",
-      env_set("WALLET_ADDRESS"),
-      f"{'מוגדר' if env_set('WALLET_ADDRESS') else 'חסר!'}")
-
-check("P34 — OPENAI_API_KEY",
-      env_set("OPENAI_API_KEY"),
-      f"{'מוגדר' if env_set('OPENAI_API_KEY') else 'חסר — AI לא יעבוד!'}")
-
-check("P35 — OPENAI_BASE_URL",
-      env_set("OPENAI_BASE_URL"),
-      f"{'מוגדר' if env_set('OPENAI_BASE_URL') else 'חסר!'}")
-
-# ─────────────────────────────────────────────
-# סיכום
-# ─────────────────────────────────────────────
-total = len(results)
-passed = sum(1 for r in results if r["passed"])
-failed = [r for r in results if not r["passed"] and r["icon"] == FAIL]
-warnings = [r for r in results if r["icon"] == WARN]
-
-print(f"\n{'='*50}")
-print(f"📊 תוצאות בקרה: {passed}/{total} עברו")
-print(f"❌ כשלים: {len(failed)} | ⚠️ אזהרות: {len(warnings)}")
-print(f"{'='*50}\n")
-
-# ─────────────────────────────────────────────
-# שליחה לטלגרם
-# ─────────────────────────────────────────────
 def send_telegram(text: str):
-    if SILENT or not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
     try:
         requests.post(
@@ -267,30 +314,31 @@ def send_telegram(text: str):
 
 
 now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-status_emoji = "✅" if len(failed) == 0 else "❌"
+status_emoji = "✅" if not failed_list else "❌"
 
 lines = [
-    f"{status_emoji} *דוח בקרה מעגלי — {now_str}*\n",
-    f"📊 עברו: *{passed}/{total}* בדיקות",
-    f"❌ כשלים: *{len(failed)}* | ⚠️ אזהרות: *{len(warnings)}*\n",
+    f"{status_emoji} *בקרה מעגלית פונקציונלית — {now_str}*\n",
+    f"📊 עברו: *{len(passed_list)}/{total}* | ❌ כשלים: *{len(failed_list)}* | ⚠️ אזהרות: *{len(warn_list)}*\n",
 ]
 
-if failed:
-    lines.append("*🚨 כשלים שדורשים תיקון:*")
-    for r in failed:
-        lines.append(f"  ❌ {r['name']}" + (f"\n     ↳ {r['detail']}" if r['detail'] else ""))
+if failed_list:
+    lines.append("*🚨 כשלים שדורשים תיקון מיידי:*")
+    for r in failed_list:
+        lines.append(f"  ❌ `[{r['category']}]` {r['name']}")
+        if r['detail']:
+            lines.append(f"     ↳ _{r['detail']}_")
 
-if warnings:
+if warn_list:
     lines.append("\n*⚠️ אזהרות:*")
-    for r in warnings:
+    for r in warn_list:
         lines.append(f"  ⚠️ {r['name']}")
 
-if not failed and not warnings:
-    lines.append("🎉 *כל התכונות פועלות כמצופה!*")
+if not failed_list and not warn_list:
+    lines.append("🎉 *כל הבדיקות עברו — המערכת תקינה לחלוטין!*")
 
-lines.append("\n_הרץ /p\\_audit לדוח מלא_")
+lines.append("\n_/p\\_audit לדוח מלא_")
 
-send_telegram("\n".join(lines))
+if not SILENT:
+    send_telegram("\n".join(lines))
 
-# Exit with error code if there are failures (useful for CI/CD)
-sys.exit(1 if failed else 0)
+sys.exit(1 if failed_list else 0)

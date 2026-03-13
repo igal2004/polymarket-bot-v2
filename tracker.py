@@ -53,13 +53,14 @@ def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple
                     q = m.get("question", m.get("title", title or "שוק לא ידוע"))
                     s = m.get("slug", slug or "")
                     url = f"https://polymarket.com/event/{s}" if s else "https://polymarket.com"
-                    # Try multiple end_date fields
-                    end_date = (
-                        m.get("endDateIso")
-                        or (m.get("endDate", "")[:10] if m.get("endDate") else None)
-                        or m.get("end_date_iso")
-                        or m.get("closingTime", "")[:10] if m.get("closingTime") else None
-                    )
+                    # Try multiple end_date fields (in priority order)
+                    end_date = m.get("endDateIso") or None
+                    if not end_date and m.get("endDate"):
+                        end_date = str(m["endDate"])[:10]
+                    if not end_date and m.get("end_date_iso"):
+                        end_date = m["end_date_iso"]
+                    if not end_date and m.get("closingTime"):
+                        end_date = str(m["closingTime"])[:10]
                     condition_id = m.get("conditionId", "")
                     return q, url, end_date, condition_id
         except Exception:
