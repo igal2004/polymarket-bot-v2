@@ -24,7 +24,7 @@ from config import (
 )
 from polymarket_client import get_wallet_usdc_balance
 from portfolio import get_portfolio_summary
-from dry_run_journal import format_summary_message, format_trades_list, record_trade, check_and_settle_open_trades
+from dry_run_journal import format_summary_message, format_trades_list, record_trade, check_and_settle_open_trades, reset_journal
 from tracker import ExpertTracker
 
 logging.basicConfig(
@@ -138,6 +138,23 @@ async def cmd_validate(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def cmd_dryrun(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     msg = format_summary_message()
     await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def cmd_reset_dryrun(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """איפוס יומן DRY RUN — מחיקת כל העסקאות ואיפוס היתרה."""
+    # First ask for confirmation via inline keyboard
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("✅ כן, אפס הכל", callback_data="reset_dryrun|confirm"),
+        InlineKeyboardButton("❌ ביטול", callback_data="reset_dryrun|cancel")
+    ]])
+    await update.message.reply_text(
+        "⚠️ *אזהרה — איפוס יומן DRY RUN*\n\n"
+        "פעולה זו תמחק את *כל* העסקאות הקיימות ותאפס את היתרה המדומה.\n\n"
+        "האם אתה בטוח?",
+        parse_mode="Markdown",
+        reply_markup=keyboard
+    )
 
 
 async def cmd_dryrun_trades(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -270,6 +287,26 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             return
 
         action = parts[0]
+
+        # Handle reset_dryrun confirmation
+        if action == "reset_dryrun":
+            choice = parts[1] if len(parts) > 1 else "cancel"
+            if choice == "confirm":
+                try:
+                    result = reset_journal()
+                    await query.edit_message_text(
+                        f"✅ *יומן DRY RUN אופס בהצלחה*\n\n"
+                        f"🗑 נמחקו: *{result['deleted']}* עסקאות\n"
+                        f"💰 יתרה חדשה: *${result['new_balance']:.2f}*\n\n"
+                        f"📋 /p\_dryrun — סיכום נקי",
+                        parse_mode="Markdown"
+                    )
+                except Exception as e:
+                    await query.edit_message_text(f"❌ שגיאה באיפוס: {e}")
+            else:
+                await query.edit_message_text("❌ ביטול — היומן נשמר.")
+            return
+
         short_key = parts[1]
         signal = _PENDING_TRADES.get(short_key)
 
@@ -416,6 +453,7 @@ async def main():
     _ptb_app.add_handler(CommandHandler("p_validate", cmd_validate))
     _ptb_app.add_handler(CommandHandler("p_dryrun", cmd_dryrun))
     _ptb_app.add_handler(CommandHandler("p_dryrun_trades", cmd_dryrun_trades))
+    _ptb_app.add_handler(CommandHandler("p_reset_dryrun", cmd_reset_dryrun))
     _ptb_app.add_handler(CommandHandler("cutdry", cmd_dryrun))
     _ptb_app.add_handler(CallbackQueryHandler(handle_callback))
 

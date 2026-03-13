@@ -381,3 +381,23 @@ def format_trades_list():
     bal = get_sim_balance()
     lines.append(f"\n💰 יתרה מדומה נוכחית: *${bal:.2f}*")
     return "\n".join(lines)
+
+
+def reset_journal(new_balance: float = INITIAL_SIM_BALANCE) -> dict:
+    """מחיקת כל העסקאות ואיפוס היתרה המדומה."""
+    try:
+        old_trades = _load()
+        old_count = len(old_trades)
+        # Clear journal
+        _save([])
+        # Reset balance
+        _save_balance({
+            "balance": new_balance,
+            "initial": new_balance,
+            "last_updated": datetime.now().isoformat()
+        })
+        logger.info(f"Journal reset: deleted {old_count} trades, new balance ${new_balance:.2f}")
+        return {"deleted": old_count, "new_balance": new_balance}
+    except Exception as e:
+        logger.error(f"שגיאה באיפוס יומן: {e}")
+        raise
