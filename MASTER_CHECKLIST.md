@@ -163,3 +163,47 @@
 | תאריך | שינוי |
 |---|---|
 | 2026-03-13 | 7 שיפורים אסטרטגיים מניתוח קלוד — פרש, נזילות, Kelly, Drawdown, קונברגנציה, WebSocket, Drift |
+
+---
+
+## עדכון 13/03/2026 — Pipeline 8 שלבים + ניתוח ג'מיני
+
+### שיפורים חדשים — Pipeline מאוחד (P43–P52)
+
+| מזהה | תכונה | תיאור | קבצים | סטטוס |
+|---|---|---|---|---|
+| P43 | 🔴 Pipeline 8 שלבים | מנוע החלטה מאוחד — כל עסקה עוברת 8 שלבים | `trade_pipeline.py` | ✅ |
+| P44 | 🚦 Expert Stop-Loss | השעיית מומחה אחרי 5 הפסדים רצופים | `trade_pipeline.py` | ✅ |
+| P45 | 🐑 Herd Detection | אזהרה/חסימה כש-5+ מומחים נכנסים לאותו שוק | `trade_pipeline.py` | ✅ |
+| P46 | 🗂️ Sector Exposure | חסימה אם >3 עסקאות פתוחות על אותו נושא | `trade_pipeline.py` | ✅ |
+| P47 | 📊 Median Filter | חציון (לא ממוצע) לסינון מחירי כניסה | `market_analysis.py` | ✅ |
+| P48 | ⏱️ Slippage Tracking | מדידת פרש מחיר 30 שניות לאחר כניסה (DRY RUN) | `trade_pipeline.py` | ✅ |
+| P49 | 🔄 RETRY_ATTEMPTS=0 | ללא ניסיונות חוזרים אם מחיר השתנה | `config.py` | ✅ |
+| P50 | ⚖️ HIGH risk ×0.6 | פשרה בין קלוד (0.7) לג'מיני (0.5) | `config.py` | ✅ |
+| P51 | 📡 Pipeline בטלגרם | כל עסקה עוברת Pipeline לפני שליחת התראה | `telegram_bot.py` | ✅ |
+| P52 | 🔍 Drift מהיר | check_expert_drift ללא API call לשלב 8 | `market_analysis.py` | ✅ |
+
+### פרמטרים חדשים ב-config.py (ג'מיני)
+
+| פרמטר | ערך | שיפור |
+|---|---|---|
+| `EXPERT_STOP_LOSS_STREAK` | 5 | P44 |
+| `HERD_DETECTION_THRESHOLD` | 5 | P45 |
+| `MAX_SECTOR_TRADES` | 3 | P46 |
+| `SLIPPAGE_DELAY_SECONDS` | 30 | P48 |
+| `RETRY_ATTEMPTS` | 0 | P49 |
+| `KELLY_RISK_MULTIPLIERS["high"]` | 0.6 | P50 |
+
+### קבצים חדשים שנוספו (Pipeline)
+
+| קובץ | תפקיד |
+|---|---|
+| `trade_pipeline.py` | מנוע Pipeline 8 שלבים — 25 בדיקות מ-3 מקורות |
+| `expert_performance.json` | מסד נתוני ביצועי מומחים (streak, slippage) |
+
+### עדכון היסטוריית שינויים
+
+| תאריך | שינוי |
+|---|---|
+| 2026-03-13 | 7 שיפורים אסטרטגיים מניתוח קלוד — פרש, נזילות, Kelly, Drawdown, קונברגנציה, WebSocket, Drift |
+| 2026-03-13 | Pipeline 8 שלבים + 7 שיפורים מניתוח ג'מיני — Stop-Loss, Herd, Sector, Median, Slippage, Retry, HIGH×0.6 |

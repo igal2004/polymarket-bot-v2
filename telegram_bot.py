@@ -286,25 +286,54 @@ def check_wallet_protection(trade_amount_usd: float) -> tuple:
 
 async def send_trade_alert(signal: dict):
     """Sends a trade alert message to Telegram with enhanced analysis."""
-    # שיפור 4: בדיקת Drawdown — עצור אם הפסד גדול מדי
+
+    # ═══════════════════════════════════════════════════════════════
+    # 🔴 PIPELINE — 8-stage unified decision engine
+    # ═══════════════════════════════════════════════════════════════
     try:
-        from market_analysis import is_trading_halted, check_drawdown_halt, update_peak_balance
+        from trade_pipeline import run_pipeline, TradeSignal, format_pipeline_summary
         from polymarket_client import get_wallet_usdc_balance as _get_bal
-        from config import WALLET_ADDRESS as _WA
+        from config import WALLET_ADDRESS as _WA, DEFAULT_TRADE_AMOUNT_USD
         _bal = _get_bal(_WA)
-        if _bal is not None and _bal > 0:
-            update_peak_balance(_bal)
-            _halted, _halt_msg = check_drawdown_halt(_bal)
-            if _halted:
-                await _ptb_app.bot.send_message(
-                    chat_id=TELEGRAM_CHAT_ID,
-                    text=f"🛑 *מסחר הופסק אוטומטית — Drawdown!*\n{_halt_msg}",
-                    parse_mode="Markdown"
-                )
-                logger.warning(f"מסחר הופסק: {_halt_msg}")
-                return
-    except Exception as _dd_err:
-        logger.warning(f"שגיאה בבדיקת drawdown: {_dd_err}")
+        _base = DEFAULT_TRADE_AMOUNT_USD
+
+        _ts = TradeSignal(
+            expert_name       = signal.get("expert_name", ""),
+            wallet_address    = signal.get("wallet_address", ""),
+            market_question   = signal.get("market_question", ""),
+            market_slug       = signal.get("market_url", ""),
+            direction         = signal.get("outcome", "YES"),
+            expert_price      = float(signal.get("price", 0.5)),
+            current_price     = float(signal.get("price", 0.5)),
+            expert_trade_usd  = float(signal.get("usd_value", 0)),
+            market_volume_usd = 0.0,
+            end_date          = signal.get("end_date"),
+            asset_id          = signal.get("asset_id"),
+        )
+        _result = run_pipeline(_ts, base_amount=_base, balance=_bal)
+        if not _result.approved:
+            # Pipeline rejected this trade — send brief rejection notice
+            await _ptb_app.bot.send_message(
+                chat_id=TELEGRAM_CHAT_ID,
+                text=(
+                    f"🚫 *Pipeline חסם עסקה*\n"
+                    f"👤 {signal.get('expert_name','')} | {signal.get('market_question','')[:60]}\n"
+                    f"❌ סיבה: {_result.rejection_reason}"
+                ),
+                parse_mode="Markdown"
+            )
+            logger.info(f"Pipeline חסם: {_result.rejection_reason}")
+            return
+        # Attach pipeline data to signal for use below
+        signal["_pipeline"]         = _result
+        signal["_pipeline_summary"] = format_pipeline_summary(_result)
+        signal["_trade_amount_pipeline"] = _result.final_trade_usd
+        if _result.herd_warning:
+            signal["_herd_warning"] = _result.herd_warning
+    except Exception as _pipe_err:
+        logger.warning(f"שגיאה ב-Pipeline (ממשיך ללא): {_pipe_err}")
+        signal.setdefault("_pipeline_summary", "")
+        signal.setdefault("_herd_warning", "")
 
     from config import DEFAULT_TRADE_AMOUNT_USD
     from expert_profiles import get_expert_tag, get_expert_warning, get_hot_alert_header, get_automation_priority_rank
@@ -429,6 +458,17 @@ async def send_trade_alert(signal: dict):
     except Exception as _conv_err:
         logger.warning(f"שגיאה בקונברגנציה: {_conv_err}")
 
+    # Pipeline summary lines
+    pipeline_summary_line = ""
+    herd_line             = ""
+    if signal.get("_pipeline_summary"):
+        pipeline_summary_line = f"\n{signal['_pipeline_summary']}"
+    if signal.get("_herd_warning"):
+        herd_line = f"\n{signal['_herd_warning']}"
+    # Use pipeline trade amount if available
+    if signal.get("_trade_amount_pipeline"):
+        trade_amount = signal["_trade_amount_pipeline"]
+
     text = (
         f"{hot_header}{alert_header}\n\n"
         f"👤 {trader_label}: *{expert}*\n"
@@ -440,6 +480,8 @@ async def send_trade_alert(signal: dict):
         f"{price_gap_line}\n"
         f"💰 סכום {trader_label}: ${usd_val:.0f}"
         f"{convergence_line}"
+        f"{herd_line}"
+        f"{pipeline_summary_line}"
         f"{dynamic_line}{priority_line}{balance_line}{end_date_line}\n\n"
         f"🔗 [פתח שוק]({url})"
     )

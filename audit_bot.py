@@ -283,8 +283,91 @@ for var, desc in env_checks:
           f"חסר! {desc}", category="ENV")
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# 7. Pipeline 8 שלבים — PIPELINE
+# ═══════════════════════════════════════════════════════════════
+if not SILENT:
+    print("\n── 7. Pipeline 8 שלבים ──")
+
+# P43 — trade_pipeline.py קיים
+check("P43 trade_pipeline.py קיים",
+      file_exists("trade_pipeline.py"),
+      "חסר trade_pipeline.py!", category="PIPELINE")
+
+check("P43 trade_pipeline.py תקין תחבירתית",
+      syntax_ok("trade_pipeline.py"),
+      "שגיאת תחביר ב-trade_pipeline.py!", category="PIPELINE")
+
+# P44 — Expert Stop-Loss
+check("P44 Expert Stop-Loss (השעיית אחרי 5 הפסדים)",
+      file_contains("trade_pipeline.py", r"EXPERT_STOP_LOSS_STREAK|stop_loss_streak|consecutive_losses"),
+      "חסר מנגנון Expert Stop-Loss!", category="PIPELINE")
+
+# P45 — Herd Detection
+check("P45 Herd Detection (5+ מומחים)",
+      file_contains("trade_pipeline.py", r"HERD_DETECTION_THRESHOLD|herd_detection|herd_count"),
+      "חסר מנגנון Herd Detection!", category="PIPELINE")
+
+# P46 — Sector Exposure
+check("P46 Sector Exposure (מקסימום 3 עסקאות לנושא)",
+      file_contains("trade_pipeline.py", r"MAX_SECTOR_TRADES|sector_exposure|sector_count"),
+      "חסר מנגנון Sector Exposure!", category="PIPELINE")
+
+# P47 — Median Filter
+check("P47 Median Filter (חציון מחירי כניסה)",
+      file_contains("market_analysis.py", r"median_filter_experts"),
+      "חסר פונקציית median_filter_experts!", category="PIPELINE")
+
+# P48 — Slippage Tracking
+check("P48 Slippage Tracking (30 שניות)",
+      file_contains("trade_pipeline.py", r"SLIPPAGE_DELAY_SECONDS|slippage_pct|record_slippage"),
+      "חסר מנגנון Slippage Tracking!", category="PIPELINE")
+
+# P49 — RETRY_ATTEMPTS=0
+check("P49 RETRY_ATTEMPTS=0 ב-config.py",
+      file_contains("config.py", r"RETRY_ATTEMPTS"),
+      "חסר RETRY_ATTEMPTS ב-config.py!", category="PIPELINE")
+
+# P50 — HIGH risk multiplier
+check("P50 HIGH risk ×0.6 ב-config.py",
+      file_contains("config.py", r"KELLY_RISK_MULTIPLIERS"),
+      "חסר KELLY_RISK_MULTIPLIERS ב-config.py!", category="PIPELINE")
+
+# P51 — Pipeline מחובר לטלגרם
+check("P51 Pipeline מחובר ל-telegram_bot.py",
+      file_contains("telegram_bot.py", r"run_pipeline|trade_pipeline"),
+      "חסר קריאה ל-run_pipeline ב-telegram_bot.py!", category="PIPELINE")
+
+# P52 — check_expert_drift
+check("P52 check_expert_drift ב-market_analysis.py",
+      file_contains("market_analysis.py", r"check_expert_drift"),
+      "חסר check_expert_drift ב-market_analysis.py!", category="PIPELINE")
+
+# בדיקה פונקציונלית: Pipeline עובד עם TradeSignal
+try:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("tp", os.path.join(BOT_DIR, "trade_pipeline.py"))
+    tp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tp)
+    ts = tp.TradeSignal(
+        expert_name="TestExpert",
+        wallet_address="0x0",
+        market_question="Test market?",
+        market_slug="test-market",
+        direction="YES",
+        expert_price=0.6,
+        current_price=0.6,
+        expert_trade_usd=100,
+    )
+    result = tp.run_pipeline(ts, base_amount=50, balance=1000)
+    check("P43 run_pipeline מחזיר TradeSignal",
+          hasattr(result, "approved"),
+          f"approved={result.approved}", category="PIPELINE")
+except Exception as _pe:
+    check("P43 run_pipeline מחזיר TradeSignal", False, str(_pe), category="PIPELINE")
+
+# ═══════════════════════════════════════════════════════════════
 # סיכום + שליחה לטלגרם
-# ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
 passed_list = [r for r in results if r["passed"] is True]
 failed_list = [r for r in results if r["passed"] is False and r["icon"] == FAIL]
 warn_list   = [r for r in results if r["icon"] == WARN]

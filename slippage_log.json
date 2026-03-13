@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": "2026-03-13T19:54:49.597826",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-13T19:55:04.423690",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  }
+]

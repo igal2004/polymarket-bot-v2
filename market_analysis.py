@@ -410,3 +410,46 @@ def get_open_trades_summary() -> list:
         return open_trades
     except Exception:
         return []
+
+# ─── [GEMINI] Drift check מהיר לפי פרופיל קיים (ללא API call) ─────────────────
+def check_expert_drift(expert_name: str, expert_profile: dict) -> dict:
+    """
+    [GEMINI שלב 8] בדיקת drift מהירה לפי פרופיל מומחה קיים (ללא API call).
+    משמשת את trade_pipeline.py בשלב 8.
+    מחזיר dict עם drift_detected: bool ו-message: str.
+    """
+    win_rate = expert_profile.get("win_rate_pct", expert_profile.get("win_rate", 50))
+    roi      = expert_profile.get("roi_pct",      expert_profile.get("roi",      0))
+    if win_rate < 40 and roi < -20:
+        return {
+            "drift_detected": True,
+            "message": f"⚠️ Drift: {expert_name} — win_rate {win_rate}% + ROI {roi}%"
+        }
+    return {"drift_detected": False, "message": ""}
+
+
+# ─── [GEMINI] סינון חציון (median filter) ────────────────────────────────────
+def median_filter_experts(expert_signals: list) -> dict:
+    """
+    [GEMINI] מחשב חציון (לא ממוצע) של מחירי כניסה ו-confidence מרשימת איתותי מומחים.
+    expert_signals: רשימת dict עם שדות 'price', 'confidence', 'expert_name'.
+    מחזיר dict עם median_price, median_confidence, filtered_count.
+    """
+    if not expert_signals:
+        return {"median_price": None, "median_confidence": None, "filtered_count": 0}
+
+    prices      = sorted([s.get("price", 0)      for s in expert_signals if s.get("price")])
+    confidences = sorted([s.get("confidence", 50) for s in expert_signals if s.get("confidence")])
+
+    def _median(lst):
+        n = len(lst)
+        if n == 0:
+            return None
+        mid = n // 2
+        return lst[mid] if n % 2 == 1 else (lst[mid - 1] + lst[mid]) / 2
+
+    return {
+        "median_price":      _median(prices),
+        "median_confidence": _median(confidences),
+        "filtered_count":    len(expert_signals),
+    }

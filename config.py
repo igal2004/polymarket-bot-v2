@@ -91,3 +91,17 @@ DRY_RUN = True   # שנה ל-False רק לאחר שבדקת שהכל עובד!
 # ─── שעת דוח יומי ────────────────────────────────────────────────────────────
 DAILY_REPORT_HOUR   = 20
 DAILY_REPORT_MINUTE = 0
+
+# ─── [GEMINI] Pipeline 8 שלבים — פרמטרים חדשים ─────────────────────────────
+# שלב 4: Expert Stop-Loss — השעיית מומחה אחרי N הפסדים רצופים
+EXPERT_STOP_LOSS_STREAK  = 5    # מספר הפסדים רצופים להשעיה
+# שלב 5: Herd Detection — חסימה כש-N+ מומחים נכנסים לאותו שוק
+HERD_DETECTION_THRESHOLD = 5    # מספר מומחים שמגדיר "עדר"
+# שלב 6: Sector Exposure — חסימה אם יש יותר מ-N עסקאות פתוחות על אותו נושא
+MAX_SECTOR_TRADES        = 3    # מקסימום עסקאות פתוחות לנושא
+# שלב 8: Slippage Tracking — מדידת פרש מחיר 30 שניות לאחר כניסה (DRY RUN)
+SLIPPAGE_DELAY_SECONDS   = 30   # עיכוב בשניות לסימולציית slippage
+# [GEMINI] ללא ניסיונות חוזרים אם מחיר השתנה
+RETRY_ATTEMPTS           = 0    # 0 = אין ניסיון חוזר אם מחיר השתנה
+# [GEMINI+CLAUDE] HIGH risk multiplier — פשרה בין קלוד (0.7) לג'מיני (0.5)
+KELLY_RISK_MULTIPLIERS   = {"low": 1.2, "medium": 1.0, "high": 0.6}
