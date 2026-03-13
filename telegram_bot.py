@@ -243,6 +243,7 @@ def check_wallet_protection(trade_amount_usd: float) -> tuple:
 async def send_trade_alert(signal: dict):
     """Sends a trade alert message to Telegram with enhanced analysis."""
     from config import DEFAULT_TRADE_AMOUNT_USD
+    from expert_profiles import get_expert_tag, get_expert_warning
     from market_analysis import (
         get_current_market_price, analyze_price_gap,
         get_ai_risk_analysis, calculate_dynamic_trade_amount
@@ -294,6 +295,12 @@ async def send_trade_alert(signal: dict):
     end_date = signal.get("end_date")
     end_date_line = f"\n📅 פקיעת שוק: *{end_date}*" if end_date else ""
 
+    # Expert risk profile tag
+    expert_tag = get_expert_tag(expert)
+    expert_warning = get_expert_warning(expert, price)
+    risk_profile_line = f"\n🏷️ פרופיל: *{expert_tag}*"
+    warning_line = f"\n{expert_warning}" if expert_warning else ""
+
     # Real-time price & gap analysis
     current_price = get_current_market_price(asset_id)
     gap_info = analyze_price_gap(price, current_price, outcome)
@@ -314,6 +321,7 @@ async def send_trade_alert(signal: dict):
         f"📊 שוק: {market[:80]}\n"
         f"🎯 כיוון: *{outcome}*\n"
         f"💵 מחיר מומחה: *{price:.3f}* ({price_pct:.1f}%) — {price_emoji}"
+        f"{risk_profile_line}{warning_line}"
         f"{price_gap_line}\n"
         f"💰 סכום {trader_label}: ${usd_val:.0f}"
         f"{dynamic_line}{balance_line}{end_date_line}\n\n"
