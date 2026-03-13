@@ -54,7 +54,9 @@ POLL_INTERVAL_SECONDS    = 60
 
 # ─── הגנות ארנק ──────────────────────────────────────────────────────────────
 ENFORCE_BALANCE_CHECK    = True
-MAX_SINGLE_TRADE_PERCENT = 10
+MAX_SINGLE_TRADE_PERCENT = 10   # מקסימום 10% מהיתרה לעסקה בודדת
+MAX_DAILY_SPEND_PERCENT  = 30   # מקסימום 30% מהיתרה ביום
+MIN_TRADE_PRICE          = 0.20 # חסימת עסקאות מתחת ל-20% (סיכון גבוה מדי)
 
 # ─── מצב DRY RUN ─────────────────────────────────────────────────────────────
 DRY_RUN = True   # שנה ל-False רק לאחר שבדקת שהכל עובד!

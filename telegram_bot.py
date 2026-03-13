@@ -195,6 +195,48 @@ async def cmd_compare(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+async def cmd_audit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """הרצת בקרה מעגלית ידנית — /p_audit"""
+    await update.message.reply_text(
+        "🔍 *מריץ בדיקת בקרה מעגלית...* (זה עשוי לקחת 10 שניות)",
+        parse_mode="Markdown"
+    )
+    try:
+        import subprocess as _sp
+        result = _sp.run(
+            ["python3.11", "audit_bot.py", "--silent"],
+            capture_output=True, text=True, timeout=60,
+            cwd="/app"
+        )
+        output = result.stdout
+        passed = output.count("[PASS]")
+        failed_count = output.count("[FAIL]")
+        warn_count = output.count("[WARN]")
+        total = passed + failed_count + warn_count
+        status_emoji = "✅" if failed_count == 0 else "❌"
+        now_str = datetime.datetime.now(ISRAEL_TZ).strftime("%d/%m/%Y %H:%M")
+
+        lines = [
+            f"{status_emoji} *בקרה מעגלית ידנית — {now_str}*\n",
+            f"📊 עברו: *{passed}/{total}* | ❌ כשלים: *{failed_count}* | ⚠️ אזהרות: *{warn_count}*\n",
+        ]
+        if failed_count > 0:
+            fail_lines = [l for l in output.split("\n") if "[FAIL]" in l]
+            lines.append("*🚨 כשלים:*")
+            for fl in fail_lines:
+                lines.append(f"  {fl.strip()}")
+        if warn_count > 0:
+            warn_lines = [l for l in output.split("\n") if "[WARN]" in l]
+            lines.append("\n*⚠️ אזהרות:*")
+            for wl in warn_lines:
+                lines.append(f"  {wl.strip()}")
+        if failed_count == 0 and warn_count == 0:
+            lines.append("🎉 *כל התכונות פועלות כמצופה!*")
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    except Exception as e:
+        await update.message.reply_text(f"❌ שגיאה בבקרה: {e}")
+
+
 async def cmd_discover(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🔍 *סורק מומחים חדשים...* (זה עשוי לקחת 15 שניות)",
@@ -622,6 +664,7 @@ async def main():
     _ptb_app.add_handler(CommandHandler("p_reset_dryrun", cmd_reset_dryrun))
     _ptb_app.add_handler(CommandHandler("p_compare", cmd_compare))
     _ptb_app.add_handler(CommandHandler("p_discover", cmd_discover))
+    _ptb_app.add_handler(CommandHandler("p_audit", cmd_audit))
     _ptb_app.add_handler(CommandHandler("cutdry", cmd_dryrun))
     _ptb_app.add_handler(CallbackQueryHandler(handle_callback))
 
@@ -878,6 +921,72 @@ async def main():
                 await asyncio.sleep(3600)
 
     asyncio.ensure_future(_monthly_discovery_loop())
+
+    # ─── Circular Audit Loop (every Sunday at 08:00 Israel time) ─────────────
+    async def _circular_audit_loop():
+        """מנגנון בקרה מעגלי — בודק שכל תכונה שסוכמה מיושמת. כל ראשון 08:00."""
+        await asyncio.sleep(120)  # First check after 2 minutes (startup)
+        first_run = True
+        while True:
+            try:
+                now = datetime.datetime.now(ISRAEL_TZ)
+                if not first_run:
+                    # Calculate seconds until next Sunday 08:00
+                    days_until_sunday = (6 - now.weekday()) % 7
+                    if days_until_sunday == 0 and now.hour >= 8:
+                        days_until_sunday = 7
+                    next_sunday = now.replace(hour=8, minute=0, second=0, microsecond=0) + datetime.timedelta(days=days_until_sunday)
+                    wait_secs = (next_sunday - now).total_seconds()
+                    await asyncio.sleep(wait_secs)
+
+                first_run = False
+
+                # Run audit_bot.py as subprocess and capture output
+                import subprocess as _sp
+                result = _sp.run(
+                    ["python3.11", "audit_bot.py", "--silent"],
+                    capture_output=True, text=True, timeout=60,
+                    cwd="/app"
+                )
+                output = result.stdout
+
+                # Parse results
+                passed = output.count("[PASS]")
+                failed_count = output.count("[FAIL]")
+                warn_count = output.count("[WARN]")
+                total = passed + failed_count + warn_count
+                status_emoji = "✅" if failed_count == 0 else "❌"
+                now_str = datetime.datetime.now(ISRAEL_TZ).strftime("%d/%m/%Y %H:%M")
+
+                lines = [
+                    f"{status_emoji} *דוח בקרה מעגלית — {now_str}*\n",
+                    f"📊 עברו: *{passed}/{total}* בדיקות",
+                    f"❌ כשלים: *{failed_count}* | ⚠️ אזהרות: *{warn_count}*\n",
+                ]
+
+                if failed_count > 0:
+                    fail_lines = [l for l in output.split("\n") if "[FAIL]" in l]
+                    lines.append("*🚨 כשלים שדורשים תיקון:*")
+                    for fl in fail_lines:
+                        lines.append(f"  {fl.strip()}")
+                elif warn_count > 0:
+                    lines.append("⚠️ יש אזהרות הדורשות בדיקה")
+                else:
+                    lines.append("🎉 *כל התכונות פועלות כמצופה!*")
+
+                lines.append("\n_/p\\_audit לבדיקה ידנית_")
+
+                await _ptb_app.bot.send_message(
+                    chat_id=TELEGRAM_CHAT_ID,
+                    text="\n".join(lines),
+                    parse_mode="Markdown"
+                )
+                logger.info(f"דוח בקרה מעגלית נשלח: {passed}/{total} עברו")
+            except Exception as e:
+                logger.warning(f"שגיאה בבקרה מעגלית: {e}")
+                await asyncio.sleep(3600)
+
+    asyncio.ensure_future(_circular_audit_loop())
 
     # Keep running forever
     try:
