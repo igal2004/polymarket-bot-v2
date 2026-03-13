@@ -126,6 +126,8 @@ def record_trade(signal, amount_usd):
         "status": "open",
         "result_usd": None,
         "condition_id": signal.get("condition_id", ""),
+        "asset_id": signal.get("asset_id", ""),
+        "end_date": signal.get("end_date", None),
         "sim_balance_after": bal_data["balance"],
     }
     trades.append(entry)
@@ -263,6 +265,105 @@ def format_summary_message():
     return "\n".join(lines)
 
 
+def check_and_settle_open_trades() -> list:
+    """
+    Checks all open dry-run trades against the Polymarket API.
+    If a market is closed, determines win/loss based on the outcome.
+    Returns list of settled trade dicts (for sending notifications).
+    """
+    import requests as _req
+    trades = _load()
+    open_trades = [t for t in trades if t.get("status") == "open"]
+    if not open_trades:
+        return []
+
+    settled = []
+    changed = False
+    bal_data = _load_balance()
+
+    for trade in open_trades:
+        asset_id = trade.get("asset_id", "")
+        if not asset_id:
+            continue
+        try:
+            r = _req.get(
+                "https://gamma-api.polymarket.com/markets",
+                params={"clob_token_ids": asset_id},
+                timeout=10
+            )
+            if r.status_code != 200:
+                continue
+            data = r.json()
+            if not isinstance(data, list) or not data:
+                continue
+            m = data[0]
+            is_closed = m.get("closed", False)
+            if not is_closed:
+                continue
+            # Market is closed — determine outcome
+            # outcomePrices: ["1", "0"] means first outcome (YES) won
+            outcome_prices = m.get("outcomePrices", [])
+            outcomes = m.get("outcomes", ["Yes", "No"])
+            if isinstance(outcomes, str):
+                import json as _json
+                try:
+                    outcomes = _json.loads(outcomes)
+                except Exception:
+                    outcomes = ["Yes", "No"]
+            if isinstance(outcome_prices, str):
+                import json as _json
+                try:
+                    outcome_prices = _json.loads(outcome_prices)
+                except Exception:
+                    outcome_prices = []
+            # Find which outcome resolved to 1.0 (winner)
+            winning_outcome = None
+            for i, op in enumerate(outcome_prices):
+                try:
+                    if float(op) >= 0.99:
+                        winning_outcome = outcomes[i] if i < len(outcomes) else None
+                        break
+                except (ValueError, TypeError):
+                    pass
+            if winning_outcome is None:
+                logger.info(f"Trade #{trade['id']}: market closed but no clear winner yet")
+                continue
+            # Compare with our outcome
+            our_outcome = trade.get("outcome", "").strip().lower()
+            won = our_outcome == winning_outcome.strip().lower()
+            # Update trade
+            idx = next(i for i, t in enumerate(trades) if t["id"] == trade["id"])
+            if won:
+                payout = trade.get("potential_payout", trade["amount_usd"])
+                profit = payout - trade["amount_usd"]
+                trades[idx]["status"] = "won"
+                trades[idx]["result_usd"] = round(profit, 2)
+                trades[idx]["winning_outcome"] = winning_outcome
+                bal_data["balance"] = round(bal_data["balance"] + payout, 2)
+                logger.info(f"Trade #{trade['id']} WON: +${profit:.2f}")
+            else:
+                trades[idx]["status"] = "lost"
+                trades[idx]["result_usd"] = -trade["amount_usd"]
+                trades[idx]["winning_outcome"] = winning_outcome
+                logger.info(f"Trade #{trade['id']} LOST: -${trade['amount_usd']:.2f}")
+            settled.append(trades[idx])
+            changed = True
+        except Exception as e:
+            logger.warning(f"Error checking trade #{trade['id']}: {e}")
+            continue
+
+    if changed:
+        _save(trades)
+        _save_balance(bal_data)
+        threading.Thread(
+            target=_send_telegram_backup,
+            args=(trades, bal_data),
+            daemon=True
+        ).start()
+
+    return settled
+
+
 def format_trades_list():
     trades = _load()
     if not trades:
@@ -272,9 +373,10 @@ def format_trades_list():
         status_emoji = {"open": "🟡", "won": "✅", "lost": "❌"}.get(t["status"], "❓")
         date = t["timestamp"][:10]
         roi = t.get("roi_pct", 0)
+        end_str = f" | פקיעה: {t['end_date']}" if t.get("end_date") else ""
         lines.append(
             f"{status_emoji} #{t['id']} | {date} | *{t['expert']}*\n"
-            f"   {t['outcome']} @ {t['price']:.3f} | ${t['amount_usd']:.2f} | ROI: {roi:.1f}%"
+            f"   {t['outcome']} @ {t['price']:.3f} | ${t['amount_usd']:.2f} | ROI: {roi:.1f}%{end_str}"
         )
     bal = get_sim_balance()
     lines.append(f"\n💰 יתרה מדומה נוכחית: *${bal:.2f}*")

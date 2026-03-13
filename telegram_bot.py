@@ -24,7 +24,7 @@ from config import (
 )
 from polymarket_client import get_wallet_usdc_balance
 from portfolio import get_portfolio_summary
-from dry_run_journal import format_summary_message, format_trades_list, record_trade
+from dry_run_journal import format_summary_message, format_trades_list, record_trade, check_and_settle_open_trades
 from tracker import ExpertTracker
 
 logging.basicConfig(
@@ -202,6 +202,9 @@ async def send_trade_alert(signal: dict):
         alert_header = f"🚨 *עסקת מומחה חדשה* — {now_il}"
         trader_label = "מומחה"
 
+    end_date = signal.get("end_date")
+    end_date_line = f"\n📅 פקיעת שוק: *{end_date}*" if end_date else ""
+
     text = (
         f"{alert_header}\n\n"
         f"👤 {trader_label}: *{expert}*\n"
@@ -209,7 +212,7 @@ async def send_trade_alert(signal: dict):
         f"🎯 כיוון: *{outcome}*\n"
         f"💵 מחיר: *{price:.3f}* ({price_pct:.1f}%) — {price_emoji}\n"
         f"💰 סכום {trader_label}: ${usd_val:.0f}\n"
-        f"⚡ סכום מוצע: ${trade_amount:.2f}{balance_line}\n\n"
+        f"⚡ סכום מוצע: ${trade_amount:.2f}{balance_line}{end_date_line}\n\n"
         f"🔗 [פתח שוק]({url})"
     )
 
@@ -483,6 +486,41 @@ async def main():
             await asyncio.sleep(86400)  # 24 hours
 
     asyncio.ensure_future(_daily_backup_loop())
+
+    # Schedule settlement check loop (every hour)
+    async def _settlement_loop():
+        await asyncio.sleep(300)  # First check after 5 minutes
+        while True:
+            try:
+                settled = await asyncio.get_event_loop().run_in_executor(
+                    None, check_and_settle_open_trades
+                )
+                for trade in settled:
+                    status = trade["status"]
+                    emoji = "✅" if status == "won" else "❌"
+                    result = trade.get("result_usd", 0) or 0
+                    result_str = f"+${result:.2f}" if result >= 0 else f"-${abs(result):.2f}"
+                    winning = trade.get("winning_outcome", "?")
+                    outcome_label = 'זכייה' if status == 'won' else 'הפסד'
+                    settle_text = (
+                        f"{emoji} *עסקה #{trade['id']} נסגרה \u2014 {outcome_label}*\n\n"
+                        f"👤 מומחה: {trade['expert']}\n"
+                        f"📊 שוק: {trade['market'][:70]}\n"
+                        f"🎯 כיוון שלך: *{trade['outcome']}* | תוצאה בפועל: *{winning}*\n"
+                        f"💰 השקעת: ${trade['amount_usd']:.2f} | תוצאה: *{result_str}*\n\n"
+                        f"📋 /p\_dryrun \u2014 סיכום מעודכן"
+                    )
+                    await _ptb_app.bot.send_message(
+                        chat_id=TELEGRAM_CHAT_ID,
+                        text=settle_text,
+                        parse_mode="Markdown"
+                    )
+                    logger.info(f"Settlement notification sent for trade #{trade['id']}")
+            except Exception as e:
+                logger.warning(f"שגיאה בלולאת הסגירה: {e}")
+            await asyncio.sleep(3600)  # Check every hour
+
+    asyncio.ensure_future(_settlement_loop())
 
     # Keep running forever
     try:

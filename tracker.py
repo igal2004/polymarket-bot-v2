@@ -37,10 +37,10 @@ def get_recent_trades(wallet: str, limit: int = 10) -> list:
 
 
 def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple:
-    """Returns (question, url)."""
+    """Returns (question, url, end_date, condition_id)."""
     if title and slug:
         url = f"https://polymarket.com/event/{slug}"
-        return title, url
+        return title, url, None, None
     if asset_id:
         try:
             r = requests.get(
@@ -55,10 +55,12 @@ def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple
                     q = m.get("question", m.get("title", "שוק לא ידוע"))
                     s = m.get("slug", "")
                     url = f"https://polymarket.com/event/{s}" if s else "https://polymarket.com"
-                    return q, url
+                    end_date = m.get("endDateIso") or m.get("endDate", "")[:10] if m.get("endDate") else None
+                    condition_id = m.get("conditionId", "")
+                    return q, url, end_date, condition_id
         except Exception:
             pass
-    return "שוק לא ידוע", "https://polymarket.com"
+    return "שוק לא ידוע", "https://polymarket.com", None, None
 
 
 def _parse_trade(t: dict, name: str) -> dict:
@@ -87,7 +89,7 @@ def _parse_trade(t: dict, name: str) -> dict:
     asset_id = t.get("asset", t.get("asset_id", t.get("assetId", "")))
     title = t.get("title", "")
     slug = t.get("eventSlug", t.get("slug", ""))
-    question, url = get_market_question(asset_id, slug=slug, title=title)
+    question, url, end_date, condition_id = get_market_question(asset_id, slug=slug, title=title)
 
     return {
         "trade_id": tid,
@@ -99,6 +101,8 @@ def _parse_trade(t: dict, name: str) -> dict:
         "price": price,
         "usd_value": usd,
         "size": size,
+        "end_date": end_date,
+        "condition_id": condition_id or "",
     }
 
 
