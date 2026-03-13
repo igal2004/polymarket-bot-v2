@@ -366,6 +366,90 @@ except Exception as _pe:
     check("P43 run_pipeline מחזיר TradeSignal", False, str(_pe), category="PIPELINE")
 
 # ═══════════════════════════════════════════════════════════════
+# 8. מודולים חדשים — NEW MODULES
+# ═══════════════════════════════════════════════════════════════
+if not SILENT:
+    print("\n── 8. מודולים חדשים (Backtesting, Exit Manager, Wallet Scanner) ──")
+
+# P53 — backtester.py קיים
+check("P53 backtester.py קיים",
+      file_exists("backtester.py"),
+      "חסר backtester.py!", category="NEW_MODULES")
+
+check("P53 backtester.py תקין תחבירתית",
+      syntax_ok("backtester.py"),
+      "שגיאת תחביר ב-backtester.py!", category="NEW_MODULES")
+
+# P54 — run_full_backtest קיים
+check("P54 run_full_backtest פונקציה קיימת",
+      file_contains("backtester.py", r"def run_full_backtest"),
+      "חסר run_full_backtest!", category="NEW_MODULES")
+
+# P55 — exit_manager.py קיים
+check("P55 exit_manager.py קיים",
+      file_exists("exit_manager.py"),
+      "חסר exit_manager.py!", category="NEW_MODULES")
+
+check("P55 exit_manager.py תקין תחבירתית",
+      syntax_ok("exit_manager.py"),
+      "שגיאת תחביר ב-exit_manager.py!", category="NEW_MODULES")
+
+# P56 — Take Profit פרמטרים ב-config.py
+check("P56 TAKE_PROFIT_PCT ב-config.py",
+      file_contains("config.py", r"TAKE_PROFIT_PCT"),
+      "חסר TAKE_PROFIT_PCT ב-config.py!", category="NEW_MODULES")
+
+check("P56 STOP_LOSS_PCT ב-config.py",
+      file_contains("config.py", r"STOP_LOSS_PCT"),
+      "חסר STOP_LOSS_PCT ב-config.py!", category="NEW_MODULES")
+
+check("P56 TIME_EXIT_HOURS ב-config.py",
+      file_contains("config.py", r"TIME_EXIT_HOURS"),
+      "חסר TIME_EXIT_HOURS ב-config.py!", category="NEW_MODULES")
+
+# P57 — Exit Manager מחובר ל-telegram_bot.py
+check("P57 ExitManager מחובר ל-telegram_bot.py",
+      file_contains("telegram_bot.py", r"ExitManager|exit_manager"),
+      "חסר חיבור ExitManager ל-telegram_bot.py!", category="NEW_MODULES")
+
+check("P57 _exit_manager_loop קיימת ב-telegram_bot.py",
+      file_contains("telegram_bot.py", r"_exit_manager_loop"),
+      "חסר _exit_manager_loop!", category="NEW_MODULES")
+
+# P58 — wallet_scanner.py קיים
+check("P58 wallet_scanner.py קיים",
+      file_exists("wallet_scanner.py"),
+      "חסר wallet_scanner.py!", category="NEW_MODULES")
+
+check("P58 wallet_scanner.py תקין תחבירתית",
+      syntax_ok("wallet_scanner.py"),
+      "שגיאת תחביר ב-wallet_scanner.py!", category="NEW_MODULES")
+
+# P59 — run_wallet_scan פונקציה קיימת
+check("P59 run_wallet_scan פונקציה קיימת",
+      file_contains("wallet_scanner.py", r"def run_wallet_scan"),
+      "חסר run_wallet_scan!", category="NEW_MODULES")
+
+# P60 — wallet_scanner מחובר ל-telegram_bot.py
+check("P60 wallet_scanner מחובר ל-telegram_bot.py",
+      file_contains("telegram_bot.py", r"wallet_scanner|run_wallet_scan"),
+      "חסר חיבור wallet_scanner ל-telegram_bot.py!", category="NEW_MODULES")
+
+# P61 — בדיקה פונקציונלית: ExitManager ניתן ליצירה
+try:
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location("em", os.path.join(BOT_DIR, "exit_manager.py"))
+    _em = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_em)
+    _mgr = _em.ExitManager()
+    _open = _mgr.get_open_positions()
+    check("P61 ExitManager ניתן ליצירה ושליפת פוזיציות",
+          isinstance(_open, list),
+          f"סוג שגוי: {type(_open)}", category="NEW_MODULES")
+except Exception as _eme:
+    check("P61 ExitManager ניתן ליצירה", False, str(_eme), category="NEW_MODULES")
+
+# ═══════════════════════════════════════════════════════════════
 # סיכום + שליחה לטלגרם
 # ═══════════════════════════════════════════════════════════════
 passed_list = [r for r in results if r["passed"] is True]

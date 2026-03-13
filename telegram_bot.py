@@ -26,6 +26,7 @@ from polymarket_client import get_wallet_usdc_balance
 from portfolio import get_portfolio_summary
 from dry_run_journal import format_summary_message, format_trades_list, record_trade, check_and_settle_open_trades, reset_journal
 from tracker import ExpertTracker
+from exit_manager import ExitManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -623,7 +624,18 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 return
 
             if DRY_RUN:
-                trade_id = record_trade(signal, trade_amount)
+                trade_id, _ = record_trade(signal, trade_amount)
+                # הוסף פוזיציה ל-Exit Manager
+                try:
+                    _em = ExitManager()
+                    _em.add_position(
+                        signal,
+                        entry_price=signal.get("price", 0.5),
+                        amount_usd=trade_amount,
+                        trade_id=f"dry_{trade_id}"
+                    )
+                except Exception as _em_err:
+                    logger.warning(f"שגיאה ב-ExitManager.add_position: {_em_err}")
                 await query.edit_message_text(
                     f"✅ *DRY RUN — נרשם ביומן*\n\n"
                     f"מומחה: {expert}\n"
@@ -631,16 +643,29 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                     f"כיוון: {outcome}\n"
                     f"סכום: ${trade_amount:.2f}{balance_line}\n\n"
                     f"📋 מספר עסקה: #{trade_id}\n"
+                    f"🎯 TP: +20% | SL: -12% | זמן: 48h\n"
                     f"הקלד /p\_dryrun לסיכום",
                     parse_mode="Markdown"
                 )
             else:
+                # הוסף פוזיציה ל-Exit Manager גם ב-LIVE
+                try:
+                    _em = ExitManager()
+                    _em.add_position(
+                        signal,
+                        entry_price=signal.get("price", 0.5),
+                        amount_usd=trade_amount,
+                        trade_id=f"live_{int(time.time())}"
+                    )
+                except Exception as _em_err:
+                    logger.warning(f"שגיאה ב-ExitManager.add_position (LIVE): {_em_err}")
                 await query.edit_message_text(
                     f"✅ *פקודת קנייה נשלחה*\n\n"
                     f"מומחה: {expert}\n"
                     f"שוק: {market}\n"
                     f"כיוון: {outcome}\n"
-                    f"סכום: ${trade_amount:.2f}",
+                    f"סכום: ${trade_amount:.2f}\n"
+                    f"🎯 TP: +20% | SL: -12% | זמן: 48h",
                     parse_mode="Markdown"
                 )
 
@@ -966,34 +991,27 @@ async def main():
                 wait_secs = (next_run - now).total_seconds()
                 await asyncio.sleep(wait_secs)
 
-                from market_analysis import discover_top_traders
-                candidates = await asyncio.get_event_loop().run_in_executor(
-                    None, discover_top_traders
+                # סריקת ארנקים משודרגת באמצעות wallet_scanner
+                from wallet_scanner import run_wallet_scan, format_scan_telegram
+                scan_results = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: run_wallet_scan(top_n=50, min_pnl=10000)
                 )
 
-                if not candidates:
+                if not scan_results:
                     await _ptb_app.bot.send_message(
                         chat_id=TELEGRAM_CHAT_ID,
-                        text="\U0001f50d *\u05e1\u05e8\u05d9\u05e7\u05ea \u05de\u05d5\u05de\u05d7\u05d9\u05dd \u05d7\u05d3\u05e9\u05d9\u05dd* \u2014 \u05dc\u05d0 \u05e0\u05de\u05e6\u05d0\u05d5 \u05de\u05d5\u05e2\u05de\u05d3\u05d9\u05dd \u05d7\u05d3\u05e9\u05d9\u05dd \u05d4\u05d7\u05d5\u05d3\u05e9.",
+                        text="🔍 *סריקת ארנקים* — לא נמצאו תוצאות החודש.",
                         parse_mode="Markdown"
                     )
                     continue
 
-                lines = [f"\U0001f50d *\u05de\u05d5\u05de\u05d7\u05d9\u05dd \u05d7\u05d3\u05e9\u05d9\u05dd \u05e9\u05e0\u05de\u05e6\u05d0\u05d5* \u2014 {now.strftime('%m/%Y')}\n"]
-                for c in candidates:
-                    lines.append(
-                        f"  \U0001f195 *{c['name']}*\n"
-                        f"    \U0001f4b0 \u05e8\u05d5\u05d5\u05d7: ${c['pnl']:,.0f} | \U0001f3af \u05d4\u05e6\u05dc\u05d7\u05d4: {c['win_rate']:.0f}%\n"
-                        f"    \U0001f4b3 \u05db\u05ea\u05d5\u05d1\u05ea: `{c['wallet']}`"
-                    )
-                lines.append("\n\u05dc\u05d4\u05d5\u05e1\u05e4\u05ea \u05de\u05d5\u05de\u05d7\u05d4 \u05dc\u05de\u05e2\u05e7\u05d1 \u2014 \u05e2\u05d3\u05db\u05df \u05d0\u05ea config.py \u05d1-EXPERT\_WALLETS")
-
+                scan_msg = format_scan_telegram(scan_results)
                 await _ptb_app.bot.send_message(
                     chat_id=TELEGRAM_CHAT_ID,
-                    text="\n".join(lines),
+                    text=scan_msg,
                     parse_mode="Markdown"
                 )
-                logger.info(f"\u05d3\u05d5\u05d7 \u05d2\u05d9\u05dc\u05d5\u05d9 \u05de\u05d5\u05de\u05d7\u05d9\u05dd \u05e0\u05e9\u05dc\u05d7 \u2014 {len(candidates)} \u05de\u05d5\u05e2\u05de\u05d3\u05d9\u05dd")
+                logger.info(f"סריקת ארנקים נשלחה — {scan_results.get('total_scanned', 0)} נסרקו, {scan_results.get('new_discoveries', 0)} גילויים חדשים")
             except Exception as e:
                 logger.warning(f"\u05e9\u05d2\u05d9\u05d0\u05d4 \u05d1\u05d2\u05d9\u05dc\u05d5\u05d9 \u05de\u05d5\u05de\u05d7\u05d9\u05dd: {e}")
                 await asyncio.sleep(3600)
@@ -1085,6 +1103,32 @@ async def main():
                 await asyncio.sleep(3600)
 
     asyncio.ensure_future(_circular_audit_loop())
+
+    # ─── Exit Manager Loop (every 15 minutes) ──────────────────────────────
+    async def _exit_manager_loop():
+        """בודק פוזיציות פתוחות ומבצע Take Profit / Stop Loss / Time Exit."""
+        await asyncio.sleep(180)  # First check after 3 minutes
+        _exit_mgr = ExitManager(
+            telegram_callback=lambda msg: asyncio.ensure_future(
+                _ptb_app.bot.send_message(
+                    chat_id=TELEGRAM_CHAT_ID,
+                    text=msg,
+                    parse_mode="Markdown"
+                )
+            )
+        )
+        while True:
+            try:
+                closed = await asyncio.get_event_loop().run_in_executor(
+                    None, _exit_mgr.check_exits
+                )
+                if closed:
+                    logger.info(f"Exit Manager: {len(closed)} פוזיציות נסגרו")
+            except Exception as e:
+                logger.warning(f"שגיאה ב-Exit Manager: {e}")
+            await asyncio.sleep(900)  # Check every 15 minutes
+
+    asyncio.ensure_future(_exit_manager_loop())
 
     # Keep running forever
     try:

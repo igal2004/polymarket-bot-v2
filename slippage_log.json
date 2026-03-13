@@ -16,5 +16,14 @@
     "current_price": 0.6,
     "slippage_pct": 0.0,
     "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-13T21:51:56.925728",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
   }
 ]

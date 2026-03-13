@@ -207,3 +207,58 @@
 |---|---|
 | 2026-03-13 | 7 שיפורים אסטרטגיים מניתוח קלוד — פרש, נזילות, Kelly, Drawdown, קונברגנציה, WebSocket, Drift |
 | 2026-03-13 | Pipeline 8 שלבים + 7 שיפורים מניתוח ג'מיני — Stop-Loss, Herd, Sector, Median, Slippage, Retry, HIGH×0.6 |
+
+---
+
+## 8. מודולים חדשים — Backtesting, Exit Manager, Wallet Scanner
+
+| ID | בדיקה | קובץ | סטטוס |
+|----|-------|------|-------|
+| P53 | backtester.py קיים ותקין | backtester.py | ✅ |
+| P54 | run_full_backtest פונקציה | backtester.py | ✅ |
+| P55 | exit_manager.py קיים ותקין | exit_manager.py | ✅ |
+| P56 | TAKE_PROFIT_PCT / STOP_LOSS_PCT / TIME_EXIT_HOURS | config.py | ✅ |
+| P57 | ExitManager מחובר + _exit_manager_loop | telegram_bot.py | ✅ |
+| P58 | wallet_scanner.py קיים ותקין | wallet_scanner.py | ✅ |
+| P59 | run_wallet_scan פונקציה | wallet_scanner.py | ✅ |
+| P60 | wallet_scanner מחובר לטלגרם | telegram_bot.py | ✅ |
+| P61 | ExitManager ניתן ליצירה פונקציונלית | exit_manager.py | ✅ |
+
+### פרמטרי Exit Manager (config.py)
+- `TAKE_PROFIT_PCT = 20.0` — יציאה ברווח כש-ROI הגיע ל-+20%
+- `STOP_LOSS_PCT = 12.0` — יציאה בהפסד כש-ROI ירד ל--12%
+- `TIME_EXIT_HOURS = 48` — יציאה אוטומטית אחרי 48 שעות
+- `TRAILING_STOP_ENABLED = True` — Trailing Stop Loss
+
+### קריטריוני Backtesting לפני מעבר ל-LIVE
+- Win Rate ≥ 55%
+- Max Drawdown < 25%
+- ROI כולל > 0%
+
+
+---
+
+## 8. מודולים חדשים — Backtesting, Exit Manager, Wallet Scanner
+
+| ID | בדיקה | קובץ | סטטוס |
+|----|-------|------|-------|
+| P53 | backtester.py קיים ותקין | backtester.py | ✅ |
+| P54 | run_full_backtest פונקציה | backtester.py | ✅ |
+| P55 | exit_manager.py קיים ותקין | exit_manager.py | ✅ |
+| P56 | TAKE_PROFIT_PCT / STOP_LOSS_PCT / TIME_EXIT_HOURS | config.py | ✅ |
+| P57 | ExitManager מחובר + _exit_manager_loop | telegram_bot.py | ✅ |
+| P58 | wallet_scanner.py קיים ותקין | wallet_scanner.py | ✅ |
+| P59 | run_wallet_scan פונקציה | wallet_scanner.py | ✅ |
+| P60 | wallet_scanner מחובר לטלגרם | telegram_bot.py | ✅ |
+| P61 | ExitManager ניתן ליצירה פונקציונלית | exit_manager.py | ✅ |
+
+### פרמטרי Exit Manager (config.py)
+- TAKE_PROFIT_PCT = 20.0 — יציאה ברווח כש-ROI הגיע ל-+20%
+- STOP_LOSS_PCT = 12.0 — יציאה בהפסד כש-ROI ירד ל--12%
+- TIME_EXIT_HOURS = 48 — יציאה אוטומטית אחרי 48 שעות
+- TRAILING_STOP_ENABLED = True — Trailing Stop Loss
+
+### קריטריוני Backtesting לפני מעבר ל-LIVE
+- Win Rate >= 55%
+- Max Drawdown < 25%
+- ROI כולל > 0%

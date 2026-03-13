@@ -105,3 +105,9 @@ SLIPPAGE_DELAY_SECONDS   = 30   # עיכוב בשניות לסימולציית s
 RETRY_ATTEMPTS           = 0    # 0 = אין ניסיון חוזר אם מחיר השתנה
 # [GEMINI+CLAUDE] HIGH risk multiplier — פשרה בין קלוד (0.7) לג'מיני (0.5)
 KELLY_RISK_MULTIPLIERS   = {"low": 1.2, "medium": 1.0, "high": 0.6}
+
+# ─── Exit Manager — Take Profit / Stop Loss / Time Exit ──────────────────────
+TAKE_PROFIT_PCT      = 20.0   # יציאה ברווח כש-ROI הגיע ל-+20%
+STOP_LOSS_PCT        = 12.0   # יציאה בהפסד כש-ROI ירד ל--12%
+TIME_EXIT_HOURS      = 48     # יציאה אוטומטית אחרי 48 שעות
+TRAILING_STOP_ENABLED = True  # Trailing Stop Loss — מעקב אחרי שיא המחיר
