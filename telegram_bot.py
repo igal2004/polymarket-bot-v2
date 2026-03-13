@@ -362,21 +362,10 @@ async def send_trade_alert(signal: dict):
 
     warning_line = f"\n{expert_warning}" if expert_warning else ""
 
-    # Investment recommendation based on expert profile
+    # Investment recommendation based on expert profile (uses recommendation field)
     if profile:
-        auto_ok = profile.get("auto_approved", False)
-        win_r = profile.get("win_rate_pct") or 0
-        roi_v = profile.get("roi_pct") or 0
-        if profile.get("hot_signal"):
-            invest_rec = "\n🔥 *המלצה: כדאי מאוד להשקיע — לווייתן עם 100% הצלחה*"
-        elif auto_ok and win_r >= 65 and roi_v > 0:
-            invest_rec = "\n✅ *המלצה: כדאי להשקיע — פרופיל מצוין*"
-        elif auto_ok and win_r >= 50:
-            invest_rec = "\n🟡 *המלצה: שקול להשקיע — פרופיל סביר*"
-        elif not auto_ok:
-            invest_rec = "\n⚠️ *המלצה: זהירות — מומחה עם פרופיל מעורב, דרוש אישור ידני*"
-        else:
-            invest_rec = "\n🟠 *המלצה: השקע בזהירות — ביצועים חלשים בעבר*"
+        from expert_profiles import get_invest_recommendation
+        invest_rec = f"\n{get_invest_recommendation(expert)}"
     else:
         invest_rec = "\n⚪ *המלצה: מומחה חדש — המתן לנתונים נוספים*"
 

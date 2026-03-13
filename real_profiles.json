@@ -1,0 +1,368 @@
+{
+  "Fredi9999": {
+    "name": "Fredi9999",
+    "wallet": "0x1f2dd6d473f3e824cd2f8a89d9c69fb96f6ad0cf",
+    "win_rate_pct": 100.0,
+    "roi_pct": 792.0,
+    "total_pnl": 29000000,
+    "total_trades": 45,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "MEDIUM": 70
+    },
+    "avg_trade_size": 366086.06,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "STRONG_BUY",
+    "is_whale": true
+  },
+  "zxgngl": {
+    "name": "zxgngl",
+    "wallet": "0xd235973291b2b75ff4070e9c0b01728c520b0f29",
+    "win_rate_pct": 80.0,
+    "roi_pct": 156.0,
+    "total_pnl": 8500000,
+    "total_trades": 95,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "LOW": 1,
+      "MEDIUM": 98
+    },
+    "avg_trade_size": 2828.22,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "BUY",
+    "is_whale": true
+  },
+  "Len9311238": {
+    "name": "Len9311238",
+    "wallet": "0x78b9ac44a6d7d7a076c14e0ad518b301b63c6b76",
+    "win_rate_pct": 100.0,
+    "roi_pct": 245.0,
+    "total_pnl": 9900000,
+    "total_trades": 12,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "LOW": 11,
+      "MEDIUM": 77
+    },
+    "avg_trade_size": 177729.22,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "STRONG_BUY",
+    "is_whale": true
+  },
+  "Theo4": {
+    "name": "Theo4",
+    "wallet": "0x56687bf447db6ffa42ffe2204a05edaa20f55839",
+    "win_rate_pct": 82.0,
+    "roi_pct": 477.0,
+    "total_pnl": 34100000,
+    "total_trades": 180,
+    "dominant_risk": "HIGH",
+    "risk_distribution": {
+      "LOW": 18,
+      "HIGH": 57,
+      "MEDIUM": 10
+    },
+    "avg_trade_size": 425316.01,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "BUY",
+    "is_whale": true
+  },
+  "RepTrump": {
+    "name": "RepTrump",
+    "wallet": "0x863134d00841b2e200492805a01e1e2f5defaa53",
+    "win_rate_pct": 100.0,
+    "roi_pct": 312.0,
+    "total_pnl": 9900000,
+    "total_trades": 8,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "MEDIUM": 91
+    },
+    "avg_trade_size": 140209.13,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "STRONG_BUY",
+    "is_whale": true
+  },
+  "kch123": {
+    "name": "kch123",
+    "wallet": "0x6a72f61820b26b1fe4d956e17b6dc2a1ea3033ee",
+    "win_rate_pct": 34.0,
+    "roi_pct": -45.0,
+    "total_pnl": -15000,
+    "total_trades": 71,
+    "dominant_risk": "LOW",
+    "risk_distribution": {
+      "MEDIUM": 5,
+      "LOW": 75
+    },
+    "avg_trade_size": 16488.18,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "AVOID",
+    "is_whale": false
+  },
+  "RN1": {
+    "name": "RN1",
+    "wallet": "0x2005d16a84ceefa912d4e380cd32e7ff827875ea",
+    "win_rate_pct": 68.0,
+    "roi_pct": 45.0,
+    "total_pnl": 95000,
+    "total_trades": 180,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "LOW": 18,
+      "MEDIUM": 76,
+      "HIGH": 6
+    },
+    "avg_trade_size": 64.4,
+    "live_sample_trades": 100,
+    "size_tier": "SMALL",
+    "recommendation": "CAUTIOUS_BUY",
+    "is_whale": false
+  },
+  "DrPufferfish": {
+    "name": "DrPufferfish",
+    "wallet": "0xdb27bf2ac5d428a9c63dbc914611036855a6c56e",
+    "win_rate_pct": 58.0,
+    "roi_pct": 15.0,
+    "total_pnl": 18000,
+    "total_trades": 809,
+    "dominant_risk": "HIGH",
+    "risk_distribution": {
+      "HIGH": 83,
+      "LOW": 17
+    },
+    "avg_trade_size": 62.22,
+    "live_sample_trades": 100,
+    "size_tier": "SMALL",
+    "recommendation": "NEUTRAL",
+    "is_whale": false
+  },
+  "GCottrell93": {
+    "name": "GCottrell93",
+    "wallet": "0x94a428cfa4f84b264e01f70d93d02bc96cb36356",
+    "win_rate_pct": 75.0,
+    "roi_pct": 1553.0,
+    "total_pnl": 850000,
+    "total_trades": 320,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "MEDIUM": 29,
+      "HIGH": 22,
+      "LOW": 7
+    },
+    "avg_trade_size": 8016.6,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "BUY",
+    "is_whale": false
+  },
+  "KeyTransporter": {
+    "name": "KeyTransporter",
+    "wallet": "0x94f199fb7789f1aef7fff6b758d6b375100f4c7a",
+    "win_rate_pct": 71.0,
+    "roi_pct": 89.0,
+    "total_pnl": 120000,
+    "total_trades": 210,
+    "dominant_risk": "LOW",
+    "risk_distribution": {
+      "LOW": 99
+    },
+    "avg_trade_size": 65666.51,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "BUY",
+    "is_whale": false
+  },
+  "swisstony": {
+    "name": "swisstony",
+    "wallet": "0x204f72f35326db932158cba6adff0b9a1da95e14",
+    "win_rate_pct": 66.0,
+    "roi_pct": 38.0,
+    "total_pnl": 45000,
+    "total_trades": 150,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "LOW": 35,
+      "MEDIUM": 54,
+      "HIGH": 11
+    },
+    "avg_trade_size": 170.85,
+    "live_sample_trades": 100,
+    "size_tier": "SMALL",
+    "recommendation": "CAUTIOUS_BUY",
+    "is_whale": false
+  },
+  "GamblingIsAllYouNeed": {
+    "name": "GamblingIsAllYouNeed",
+    "wallet": "0x507e52ef684ca2dd91f90a9d26d149dd3288beae",
+    "win_rate_pct": 62.0,
+    "roi_pct": 28.0,
+    "total_pnl": 32000,
+    "total_trades": 280,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "LOW": 17,
+      "HIGH": 14,
+      "MEDIUM": 69
+    },
+    "avg_trade_size": 190.64,
+    "live_sample_trades": 100,
+    "size_tier": "SMALL",
+    "recommendation": "CAUTIOUS_BUY",
+    "is_whale": false
+  },
+  "gmanas": {
+    "name": "gmanas",
+    "wallet": "0xe90bec87d9ef430f27f9dcfe72c34b76967d5da2",
+    "win_rate_pct": 55.0,
+    "roi_pct": 12.0,
+    "total_pnl": 12000,
+    "total_trades": 120,
+    "dominant_risk": "LOW",
+    "risk_distribution": {
+      "MEDIUM": 1,
+      "HIGH": 10,
+      "LOW": 83
+    },
+    "avg_trade_size": 24523.91,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "NEUTRAL",
+    "is_whale": false
+  },
+  "blackwall": {
+    "name": "blackwall",
+    "wallet": "0xac44cb78be973ec7d91b69678c4bdfa7009afbd7",
+    "win_rate_pct": 52.0,
+    "roi_pct": 8.0,
+    "total_pnl": 8000,
+    "total_trades": 95,
+    "dominant_risk": "LOW",
+    "risk_distribution": {
+      "LOW": 60,
+      "MEDIUM": 38
+    },
+    "avg_trade_size": 117875.75,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "NEUTRAL",
+    "is_whale": false
+  },
+  "beachboy4": {
+    "name": "beachboy4",
+    "wallet": "0xc2e7800b5af46e6093872b177b7a5e7f0563be51",
+    "win_rate_pct": 60.0,
+    "roi_pct": 22.0,
+    "total_pnl": 25000,
+    "total_trades": 140,
+    "dominant_risk": "LOW",
+    "risk_distribution": {
+      "LOW": 48,
+      "MEDIUM": 9,
+      "HIGH": 3
+    },
+    "avg_trade_size": 153636.84,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "CAUTIOUS_BUY",
+    "is_whale": false
+  },
+  "anoin123": {
+    "name": "anoin123",
+    "wallet": "0x96489abcb9f583d6835c8ef95ffc923d05a86825",
+    "win_rate_pct": 48.0,
+    "roi_pct": -5.0,
+    "total_pnl": -3000,
+    "total_trades": 75,
+    "dominant_risk": "LOW",
+    "risk_distribution": {
+      "MEDIUM": 10,
+      "HIGH": 13,
+      "LOW": 77
+    },
+    "avg_trade_size": 197.91,
+    "live_sample_trades": 100,
+    "size_tier": "SMALL",
+    "recommendation": "AVOID",
+    "is_whale": false
+  },
+  "gmpm": {
+    "name": "gmpm",
+    "wallet": "0x14964aefa2cd7caff7878b3820a690a03c5aa429",
+    "win_rate_pct": 57.0,
+    "roi_pct": 18.0,
+    "total_pnl": 15000,
+    "total_trades": 130,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "MEDIUM": 68,
+      "LOW": 18
+    },
+    "avg_trade_size": 3256.85,
+    "live_sample_trades": 100,
+    "size_tier": "LARGE",
+    "recommendation": "NEUTRAL",
+    "is_whale": false
+  },
+  "weflyhigh": {
+    "name": "weflyhigh",
+    "wallet": "0x03e8a544e97eeff5753bc1e90d46e5ef22af1697",
+    "win_rate_pct": 54.0,
+    "roi_pct": 10.0,
+    "total_pnl": 9000,
+    "total_trades": 110,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "MEDIUM": 70,
+      "LOW": 19
+    },
+    "avg_trade_size": 15998.94,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "NEUTRAL",
+    "is_whale": false
+  },
+  "SwissMiss": {
+    "name": "SwissMiss",
+    "wallet": "0xdbade4c82fb72780a0db9a38f821d8671aba9c95",
+    "win_rate_pct": 59.0,
+    "roi_pct": 20.0,
+    "total_pnl": 18000,
+    "total_trades": 88,
+    "dominant_risk": "MEDIUM",
+    "risk_distribution": {
+      "LOW": 33,
+      "MEDIUM": 63
+    },
+    "avg_trade_size": 8025.12,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "NEUTRAL",
+    "is_whale": false
+  },
+  "YatSen": {
+    "name": "YatSen",
+    "wallet": "0x5bffcf561bcae83af680ad600cb99f1184d6ffbe",
+    "win_rate_pct": 63.0,
+    "roi_pct": 35.0,
+    "total_pnl": 28000,
+    "total_trades": 95,
+    "dominant_risk": "LOW",
+    "risk_distribution": {
+      "LOW": 79,
+      "MEDIUM": 9,
+      "HIGH": 4
+    },
+    "avg_trade_size": 5698.78,
+    "live_sample_trades": 100,
+    "size_tier": "WHALE",
+    "recommendation": "CAUTIOUS_BUY",
+    "is_whale": false
+  }
+}
