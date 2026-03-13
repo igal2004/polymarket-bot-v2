@@ -437,6 +437,13 @@ async def send_trade_alert(signal: dict):
         )
         logger.info(f"התראה נשלחה, key={short_key}, expert={expert}")
 
+        # 🚨 Urgent alert — fires BEFORE AI analysis so user gets it immediately
+        try:
+            from urgent_alert import maybe_send_urgent_alerts
+            await maybe_send_urgent_alerts(_ptb_app.bot, signal)
+        except Exception as ue:
+            logger.warning(f"שגיאה בהתראה דחופה: {ue}")
+
         # Send AI risk analysis as follow-up (non-blocking)
         ai_analysis = get_ai_risk_analysis(market, outcome, price, expert, usd_val)
         if ai_analysis:
