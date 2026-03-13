@@ -243,7 +243,7 @@ def check_wallet_protection(trade_amount_usd: float) -> tuple:
 async def send_trade_alert(signal: dict):
     """Sends a trade alert message to Telegram with enhanced analysis."""
     from config import DEFAULT_TRADE_AMOUNT_USD
-    from expert_profiles import get_expert_tag, get_expert_warning
+    from expert_profiles import get_expert_tag, get_expert_warning, get_hot_alert_header, get_automation_priority_rank
     from market_analysis import (
         get_current_market_price, analyze_price_gap,
         get_ai_risk_analysis, calculate_dynamic_trade_amount
@@ -295,11 +295,14 @@ async def send_trade_alert(signal: dict):
     end_date = signal.get("end_date")
     end_date_line = f"\n📅 פקיעת שוק: *{end_date}*" if end_date else ""
 
-    # Expert risk profile tag
+    # Expert risk profile tag + hot signal check
     expert_tag = get_expert_tag(expert)
     expert_warning = get_expert_warning(expert, price)
     risk_profile_line = f"\n🏷️ פרופיל: *{expert_tag}*"
     warning_line = f"\n{expert_warning}" if expert_warning else ""
+    hot_header = get_hot_alert_header(expert)
+    priority_rank = get_automation_priority_rank(expert)
+    priority_line = f"\n🏆 עדיפות אוטומציה: *#{priority_rank}*" if priority_rank <= 8 else ""
 
     # Real-time price & gap analysis
     current_price = get_current_market_price(asset_id)
@@ -316,7 +319,7 @@ async def send_trade_alert(signal: dict):
     dynamic_line = f"\n🧠 סכום דינמי: *${trade_amount:.2f}* ({dynamic_label})" if dynamic_label else ""
 
     text = (
-        f"{alert_header}\n\n"
+        f"{hot_header}{alert_header}\n\n"
         f"👤 {trader_label}: *{expert}*\n"
         f"📊 שוק: {market[:80]}\n"
         f"🎯 כיוון: *{outcome}*\n"
@@ -324,7 +327,7 @@ async def send_trade_alert(signal: dict):
         f"{risk_profile_line}{warning_line}"
         f"{price_gap_line}\n"
         f"💰 סכום {trader_label}: ${usd_val:.0f}"
-        f"{dynamic_line}{balance_line}{end_date_line}\n\n"
+        f"{dynamic_line}{priority_line}{balance_line}{end_date_line}\n\n"
         f"🔗 [פתח שוק]({url})"
     )
 
