@@ -173,9 +173,56 @@ def stage2_liquidity_check(signal: TradeSignal) -> tuple:
     signal.pipeline_log.append(f"✅ שלב 2 [LIQUIDITY]: נפח ${vol:,.0f} תקין")
     return True, ""
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# שלב 3: 📉 SPREAD FILTER
-# מקור: [CLAUDE] שיפור 1 + [GEMINI] config
+# ══# ═════════════════════════════════════════════════════════════════════════════
+# שלב 2ב: 📅 EXPIRY CHECK
+# מקור: [בקשת משתמש] סננון שווקים שנסגרים בתוך 90 יום
+# ═════════════════════════════════════════════════════════════════════════════
+def stage2b_expiry_check(signal: TradeSignal) -> tuple:
+    """
+    חוסם עסקאות בשווקים שנסגרים יותר מ-MAX_MARKET_DAYS_TO_EXPIRY יום מהיום.
+    אם אין תאריך פקיעה או החישוב נכשל — עובר באזהרה (לא נחסם).
+    """
+    try:
+        from config import MAX_MARKET_DAYS_TO_EXPIRY
+    except ImportError:
+        MAX_MARKET_DAYS_TO_EXPIRY = 90
+    # 0 = ללא הגבלה
+    if MAX_MARKET_DAYS_TO_EXPIRY <= 0:
+        signal.pipeline_log.append(f"✅ שלב 2ב [EXPIRY]: ללא הגבלת זמן")
+        return True, ""
+    end_date_str = signal.end_date
+    if not end_date_str:
+        signal.pipeline_log.append(f"⚠️ שלב 2ב [EXPIRY]: אין תאריך פקיעה — עובר באזהרה")
+        return True, ""  # בטוח — אם אין תאריך, לא נחסם
+    try:
+        # תמוך בפורמטים: ISO 8601 (עם/בלי Z), YYYY-MM-DD, YYYY-MM-DDTHH:MM:SS
+        end_date_str_clean = end_date_str.replace("Z", "+00:00")
+        try:
+            end_dt = datetime.fromisoformat(end_date_str_clean)
+        except ValueError:
+            # נסה פורמט פשוט YYYY-MM-DD
+            end_dt = datetime.strptime(end_date_str[:10], "%Y-%m-%d")
+        # הסר timezone info להשוואה פשוטה
+        if hasattr(end_dt, 'tzinfo') and end_dt.tzinfo is not None:
+            end_dt = end_dt.replace(tzinfo=None)
+        days_to_expiry = (end_dt - datetime.utcnow()).days
+        if days_to_expiry < 0:
+            signal.pipeline_log.append(f"⚠️ שלב 2ב [EXPIRY]: שוק כבר נסגר — עובר באזהרה")
+            return True, ""  # שוק שנסגר בעבר — אולי שגיאה בתאריך, לא נחסם
+        if days_to_expiry > MAX_MARKET_DAYS_TO_EXPIRY:
+            msg = (f"שוק נסגר בעוד {days_to_expiry} יום — מעל מקסימום {MAX_MARKET_DAYS_TO_EXPIRY} יום"
+                  f" (פקיעה: {end_date_str[:10]})")
+            signal.pipeline_log.append(f"❌ שלב 2ב [EXPIRY]: {msg}")
+            return False, msg
+        signal.pipeline_log.append(f"✅ שלב 2ב [EXPIRY]: נסגר בעוד {days_to_expiry} יום תקין")
+        return True, ""
+    except Exception as e:
+        # בטוח — אם החישוב נכשל, לא נחסם את העסקה
+        signal.pipeline_log.append(f"⚠️ שלב 2ב [EXPIRY]: שגיאה בבדיקת תאריך ({e}) — עובר")
+        return True, ""
+
+# ═════════════════════════════════════════════════════════════════════════════
+# שלב 3: 📉 SPREAD FILTER מקור: [CLAUDE] שיפור 1 + [GEMINI] config
 # ═══════════════════════════════════════════════════════════════════════════════
 def stage3_spread_filter(signal: TradeSignal) -> tuple:
     """
@@ -532,6 +579,12 @@ def run_pipeline(signal: TradeSignal, current_balance: float = None,
     if not ok:
         signal.approved = False
         signal.rejection_reason = f"[שלב 2] {msg}"
+        return signal
+    # שלב 2ב: פקיעת שוק מקסימלית (90 יום)
+    ok, msg = stage2b_expiry_check(signal)
+    if not ok:
+        signal.approved = False
+        signal.rejection_reason = f"[שלב 2ב] {msg}"
         return signal
     # שלב 3: פרש מחיר
     ok, msg = stage3_spread_filter(signal)
