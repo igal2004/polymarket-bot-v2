@@ -424,6 +424,17 @@ async def send_trade_alert(signal: dict):
     # Real-time price & gap analysis
     current_price = get_current_market_price(asset_id)
     gap_info = analyze_price_gap(price, current_price, outcome)
+
+    # ═══════════════════════════════════════════════════════════════
+    # 🚫 SPREAD FILTER — חסימה שקטה לפני שליחה
+    # ═══════════════════════════════════════════════════════════════
+    if gap_info.get("blocked"):
+        logger.info(
+            f"🚫 Spread Filter חסם (לא נשלח): {signal.get('expert_name','')} | "
+            f"{signal.get('market_question','')[:60]} | {gap_info.get('block_reason','')}"
+        )
+        return  # Drop silently — no Telegram message sent
+
     if current_price is not None:
         curr_pct = current_price * 100
         price_gap_line = (
@@ -508,6 +519,12 @@ async def send_trade_alert(signal: dict):
             disable_web_page_preview=True
         )
         logger.info(f"התראה נשלחה, key={short_key}, expert={expert}")
+        # 💾 שמירת message_id למחיקה עתידית אם פרש עלה מעל הסף
+        _PENDING_TRADES[short_key]["_msg_id"] = msg.message_id
+        _PENDING_TRADES[short_key]["_asset_id"] = asset_id
+        _PENDING_TRADES[short_key]["_expert_price"] = price
+        _PENDING_TRADES[short_key]["_outcome"] = outcome
+        _save_pending_trades()
 
         # 🚨 Urgent alert — fires BEFORE AI analysis so user gets it immediately
         try:
@@ -1129,6 +1146,48 @@ async def main():
             await asyncio.sleep(900)  # Check every 15 minutes
 
     asyncio.ensure_future(_exit_manager_loop())
+
+    # ─── Spread Monitor Loop (every 5 minutes) ──────────────────────────────
+    async def _spread_monitor_loop():
+        """בודק כל 5 דקות את כל ההתראות הפתוחות — אם פרש עלה מעל הסף — מוחק את ההתראה מטלגרם."""
+        from market_analysis import get_current_market_price, analyze_price_gap
+        await asyncio.sleep(120)  # First check after 2 minutes
+        while True:
+            try:
+                keys_to_delete = []
+                for key, sig in list(_PENDING_TRADES.items()):
+                    msg_id     = sig.get("_msg_id")
+                    asset_id_s = sig.get("_asset_id")
+                    exp_price  = sig.get("_expert_price")
+                    outcome_s  = sig.get("_outcome", "YES")
+                    if not msg_id or not asset_id_s or exp_price is None:
+                        continue
+                    cur_price = get_current_market_price(asset_id_s)
+                    if cur_price is None:
+                        continue
+                    gap_info = analyze_price_gap(exp_price, cur_price, outcome_s)
+                    if gap_info.get("blocked"):
+                        try:
+                            await _ptb_app.bot.delete_message(
+                                chat_id=TELEGRAM_CHAT_ID,
+                                message_id=msg_id
+                            )
+                            keys_to_delete.append(key)
+                            logger.info(
+                                f"🗑️ Spread Monitor מחק התראה: key={key} | "
+                                f"{sig.get('expert_name','')} | {gap_info.get('block_reason','')}"
+                            )
+                        except Exception as _del_err:
+                            logger.warning(f"לא ניתן למחוק התראה key={key}: {_del_err}")
+                for k in keys_to_delete:
+                    _PENDING_TRADES.pop(k, None)
+                if keys_to_delete:
+                    _save_pending_trades()
+            except Exception as _sm_err:
+                logger.warning(f"שגיאה ב-Spread Monitor: {_sm_err}")
+            await asyncio.sleep(300)  # Check every 5 minutes
+
+    asyncio.ensure_future(_spread_monitor_loop())
 
     # Keep running forever
     try:
