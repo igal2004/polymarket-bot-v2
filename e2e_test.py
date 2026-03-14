@@ -334,9 +334,64 @@ try:
 except Exception as e:
     check("חישוב ציון ביטחון", False, traceback.format_exc(limit=1))
 
-# ════════════════════════════════════════════════════════════════════════════
+# ══# ══════════════════════════════════════════════════════════════════════════
+# 9. בדיקת חסימת מחיר נמוך ופרש גבוה (ואלנסיה CF / Newcastle)
+# ══════════════════════════════════════════════════════════════════════════
+print("\n── 9. חסימת מחיר נמוך ופרש גבוה (ואלנסיה CF / Newcastle) ──────────────────────")
+try:
+    from config import MIN_TRADE_PRICE
+    # בדיקה 1: Newcastle — מחיר 0.08 (סיכון קיצוני נמוך מדי)
+    ts_newcastle = TradeSignal(
+        expert_name="test_expert", wallet_address="0x0",
+        market_question="Will Newcastle win?", market_slug="newcastle-win",
+        direction="YES", expert_price=0.08, current_price=0.08,
+        expert_trade_usd=130, market_volume_usd=50000,
+        end_date=None, asset_id="test_newcastle"
+    )
+    # אפס את ה-peak_balance כדי שה-Drawdown Guard לא יחסום את הבדיקות
+    import market_analysis as _ma
+    _ma._peak_balance = None
+    _ma._trading_halted = False
+    _TEST_BALANCE = 1000.0  # יתרה תקינה לבדיקות
+    result_newcastle = run_pipeline(ts_newcastle, base_amount=32, balance=_TEST_BALANCE)
+    check("ניוקאסל (0.08) נחסם על ידי Pipeline",
+          not result_newcastle.approved,
+          f"approved={result_newcastle.approved}, reason={result_newcastle.rejection_reason[:60] if result_newcastle.rejection_reason else 'N/A'}")
+    # בדיקה 2: Valencia CF — פרש 38.7% (0.62 מומחה, 0.38 נוכחי)
+    ts_valencia = TradeSignal(
+        expert_name="test_expert", wallet_address="0x0",
+        market_question="Will Valencia CF win?", market_slug="valencia-cf-win",
+        direction="NO", expert_price=0.62, current_price=0.38,
+        expert_trade_usd=1329, market_volume_usd=50000,
+        end_date=None, asset_id="test_valencia"
+    )
+    _ma._peak_balance = None
+    _ma._trading_halted = False
+    result_valencia = run_pipeline(ts_valencia, base_amount=32, balance=_TEST_BALANCE)
+    spread_pct_val = abs(0.38 - 0.62) / 0.62 * 100
+    check(f"ואלנסיה CF ({spread_pct_val:.1f}% פרש) נחסם על ידי Pipeline",
+          not result_valencia.approved,
+          f"approved={result_valencia.approved}, reason={result_valencia.rejection_reason[:60] if result_valencia.rejection_reason else 'N/A'}")
+    # בדיקה 3: עסקה תקינה עוברת (Lakers, פרש 3.6%, מחיר 0.55)
+    ts_good_trade = TradeSignal(
+        expert_name="swisstony", wallet_address="0xtest1234",
+        market_question="Will the Lakers win tonight?", market_slug="lakers-win-tonight",
+        direction="YES", expert_price=0.55, current_price=0.57,
+        expert_trade_usd=120.0, market_volume_usd=50000.0,
+        end_date="2026-04-01", asset_id="test_asset_001"
+    )
+    _ma._peak_balance = None
+    _ma._trading_halted = False
+    result_good_trade = run_pipeline(ts_good_trade, base_amount=32, balance=_TEST_BALANCE)
+    check("עסקה תקינה (Lakers, פרש 3.6%) עוברת Pipeline",
+          result_good_trade.approved,
+          f"rejected: {result_good_trade.rejection_reason}")
+except Exception as e:
+    check("בדיקת חסימת מחיר ופרש", False, traceback.format_exc(limit=2))
+
+# ══════════════════════════════════════════════════════════════════════════
 # סיכום
-# ════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════
 print("\n" + "═" * 70)
 passed = [r for r in results if r["icon"] == PASS]
 failed = [r for r in results if r["icon"] == FAIL]

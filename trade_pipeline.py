@@ -179,10 +179,21 @@ def stage3_spread_filter(signal: TradeSignal) -> tuple:
     עסקות גדולות (>$50K) מזיזות שוק — לכן פרש מחמיר יותר.
     [GEMINI] RETRY_ATTEMPTS=0: אם נדחה — לא לנסות שוב.
     """
-    from config import MAX_SPREAD_PCT_DEFAULT, MAX_SPREAD_PCT_LARGE, LARGE_TRADE_THRESHOLD
+    from config import MAX_SPREAD_PCT_DEFAULT, MAX_SPREAD_PCT_LARGE, LARGE_TRADE_THRESHOLD, MIN_TRADE_PRICE
     if signal.expert_price <= 0:
         signal.pipeline_log.append("✅ שלב 3 [SPREAD]: מחיר מומחה לא ידוע — דלג")
         return True, ""
+    # ✅ תיקון: חסום עסקאות עם מחיר נמוך מדי (סיכון גבוה מאוד)
+    if signal.expert_price < MIN_TRADE_PRICE:
+        msg = (f"מחיר נמוך מדי: {signal.expert_price:.3f} < {MIN_TRADE_PRICE:.2f} מינימום "
+               f"(סיכון גבוה מאוד — סיכוי ניצחון נמוך מ-{MIN_TRADE_PRICE*100:.0f}%)")
+        signal.pipeline_log.append(f"❌ שלב 3 [SPREAD/MIN_PRICE]: {msg}")
+        return False, msg
+    if signal.current_price < MIN_TRADE_PRICE:
+        msg = (f"מחיר נוכחי נמוך מדי: {signal.current_price:.3f} < {MIN_TRADE_PRICE:.2f} מינימום "
+               f"(סיכון גבוה מאוד)")
+        signal.pipeline_log.append(f"❌ שלב 3 [SPREAD/MIN_PRICE]: {msg}")
+        return False, msg
     # חישוב פרש
     spread_pct = abs(signal.current_price - signal.expert_price) / signal.expert_price * 100
     signal.slippage_pct = spread_pct
