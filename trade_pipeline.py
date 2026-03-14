@@ -551,9 +551,37 @@ def run_pipeline(signal: TradeSignal, current_balance: float = None,
 # ═══════════════════════════════════════════════════════════════════════════════
 # פונקציות עזר לטלגרם
 # ═══════════════════════════════════════════════════════════════════════════════
-def format_pipeline_summary(signal: TradeSignal) -> str:
-    """מייצר סיכום Pipeline להצגה בהתראת טלגרם."""
+def format_pipeline_summary(signal: TradeSignal, expert_profile: dict = None) -> str:
+    """מייצר סיכום Pipeline להצגה בהתראת טלגרם — כולל שורת ציון ברורה."""
+    if expert_profile is None:
+        expert_profile = {}
     lines = []
+
+    # ─── שורת ציון ברורה (תמיד מוצגת) ────────────────────────────────────────
+    confidence = _calculate_confidence_score(signal, expert_profile)
+    stages_passed = 8  # הגענו לכאן = עברנו את כל 8 השלבים
+
+    # ציון רמת סיכון
+    if confidence >= 80:
+        risk_label = "נמוך 🟢"
+        score_emoji = "🏆"
+    elif confidence >= 65:
+        risk_label = "בינוני 🟡"
+        score_emoji = "✅"
+    elif confidence >= 50:
+        risk_label = "מוגבר 🟠"
+        score_emoji = "⚠️"
+    else:
+        risk_label = "גבוה 🔴"
+        score_emoji = "⚠️"
+
+    lines.append(
+        f"\n{score_emoji} *עברה {stages_passed}/8 בדיקות* | "
+        f"ציון: *{confidence}/100* | "
+        f"סיכון: *{risk_label}*"
+    )
+
+    # ─── מידע נוסף (מוצג רק אם רלוונטי) ─────────────────────────────────────
     if signal.convergence_count >= 3 and not signal.herd_warning.startswith("🐑"):
         lines.append(f"🌊 קונברגנציה: {signal.convergence_count} מומחים מסכימים!")
         if signal.convergence_names:

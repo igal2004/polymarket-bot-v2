@@ -325,7 +325,8 @@ async def send_trade_alert(signal: dict):
             return
         # Attach pipeline data to signal for use below
         signal["_pipeline"]         = _result
-        signal["_pipeline_summary"] = format_pipeline_summary(_result)
+        signal["_pipeline_summary"] = format_pipeline_summary(_result)  # profile added below after load
+        signal["_pipeline_result"]  = _result  # store for re-format after profile loaded
         signal["_trade_amount_pipeline"] = _result.final_trade_usd
         if _result.herd_warning:
             signal["_herd_warning"] = _result.herd_warning
@@ -411,6 +412,19 @@ async def send_trade_alert(signal: dict):
         risk_profile_line = f"\n⚪ *מומחה חדש | בבדיקה*"
 
     warning_line = f"\n{expert_warning}" if expert_warning else ""
+
+    # ✅ עדכון שורת ציון Pipeline עם פרופיל מומחה אמיתי
+    if signal.get("_pipeline_result"):
+        try:
+            from trade_pipeline import format_pipeline_summary as _fmt_pipe
+            _expert_profile_for_pipe = {
+                "win_rate_pct": profile.get("win_rate_pct", 50) if profile else 50,
+                "roi_pct":      profile.get("roi_pct", 0)       if profile else 0,
+                "risk_level":   profile.get("dominant_risk", "MEDIUM").lower() if profile else "medium",
+            }
+            signal["_pipeline_summary"] = _fmt_pipe(signal["_pipeline_result"], _expert_profile_for_pipe)
+        except Exception:
+            pass  # fallback to existing summary
 
     # Investment recommendation based on expert profile (uses recommendation field)
     if profile:
