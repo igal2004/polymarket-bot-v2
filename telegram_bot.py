@@ -196,6 +196,24 @@ async def cmd_compare(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+async def cmd_resume_trading(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """הפעלת מסחר מחדש אחרי עצירת Drawdown — /p_resume_trading"""
+    try:
+        from market_analysis import resume_trading as _resume
+        from polymarket_client import get_wallet_usdc_balance as _get_bal
+        from config import WALLET_ADDRESS as _WA
+        cur_bal = _get_bal(_WA) or 0.0
+        _resume(new_peak=cur_bal)   # אפס שיא ליתרה הנוכחית
+        await update.message.reply_text(
+            f"✅ *מסחר הופעל מחדש!*\n"
+            f"יתרת שיא חדשה: *${cur_bal:.2f}*\n"
+            f"Drawdown Guard יתחיל למדוד מיתרה זו מעכשיו",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        await update.message.reply_text(f"❌ שגיאה: {e}")
+
+
 async def cmd_audit(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """הרצת בקרה מעגלית ידנית — /p_audit"""
     await update.message.reply_text(
@@ -303,7 +321,27 @@ async def send_trade_alert(signal: dict):
         _asset_id_pipeline = signal.get("asset_id", "")
         _expert_price      = float(signal.get("price", 0.5))
         _cur_price_real    = _get_cur_price(_asset_id_pipeline)
-        _current_price     = _cur_price_real if _cur_price_real is not None else _expert_price
+
+        # ✅ תיקון: אם לא הצלחנו לשלוף מחיר נוכחי — חסום (לא להניח פרש 0%)
+        if _cur_price_real is None:
+            logger.info(
+                f"Pipeline חסם — לא ניתן לשלוף מחיר נוכחי לבדיקת פרש: "
+                f"{signal.get('expert_name','')} | asset_id={_asset_id_pipeline!r}"
+            )
+            return
+        _current_price = _cur_price_real
+
+        # ✅ תיקון: חסום עסקאות עם מחיר מתחת ל-MIN_TRADE_PRICE (סיכון גבוה מדי)
+        try:
+            from config import MIN_TRADE_PRICE as _MIN_PRICE
+        except ImportError:
+            _MIN_PRICE = 0.20  # ברירת מחדל: 20%
+        if _expert_price < _MIN_PRICE:
+            logger.info(
+                f"Pipeline חסם — מחיר נמוך מדי ({_expert_price:.3f} < {_MIN_PRICE:.2f}): "
+                f"{signal.get('expert_name','')} | {signal.get('market_question','')[:60]}"
+            )
+            return
 
         _ts = TradeSignal(
             expert_name       = signal.get("expert_name", ""),
@@ -797,6 +835,7 @@ async def main():
     _ptb_app.add_handler(CommandHandler("p_compare", cmd_compare))
     _ptb_app.add_handler(CommandHandler("p_discover", cmd_discover))
     _ptb_app.add_handler(CommandHandler("p_audit", cmd_audit))
+    _ptb_app.add_handler(CommandHandler("p_resume_trading", cmd_resume_trading))
     _ptb_app.add_handler(CommandHandler("cutdry", cmd_dryrun))
     _ptb_app.add_handler(CallbackQueryHandler(handle_callback))
 

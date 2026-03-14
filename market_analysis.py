@@ -53,9 +53,12 @@ def check_drawdown_halt(current_balance: float) -> tuple:
 def is_trading_halted() -> bool:
     return _trading_halted
 
-def resume_trading():
-    global _trading_halted
+def resume_trading(new_peak: float = None):
+    """מאפס את מצב ה-Drawdown Guard. אם new_peak סופק — מאפס גם את יתרת השיא."""
+    global _trading_halted, _peak_balance
     _trading_halted = False
+    if new_peak is not None:
+        _peak_balance = new_peak
 
 
 # ─── מחיר שוק נוכחי ──────────────────────────────────────────────────────────
