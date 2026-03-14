@@ -30,8 +30,8 @@ def get_wallet_usdc_balance(wallet_address: str) -> float:
         except Exception as e:
             logger.warning(f"RPC {rpc}: {e}")
             continue
-    logger.warning("לא ניתן לשלוף יתרה — fallback $323")
-    return 323.0
+    logger.warning("לא ניתן לשלוף יתרה — מחזיר None (לא fallback לסכום קבוע)")
+    return None  # ✅ תיקון: לא להשתמש ב-323 קבוע כברירת מחדל
 
 def get_expert_recent_trades(wallet_address: str, limit: int = 20) -> list:
     """שלוף עסקאות אחרונות של מומחה."""
@@ -49,7 +49,7 @@ def get_market_info(condition_id: str) -> dict:
     """שלוף מידע על שוק לפי condition_id."""
     try:
         url = f"https://gamma-api.polymarket.com/markets"
-        params = {"condition_id": condition_id}
+        params = {"condition_ids": condition_id}  # ✅ תיקון: condition_ids (עם s)
         r = requests.get(url, params=params, timeout=10)
         if r.status_code == 200:
             data = r.json()

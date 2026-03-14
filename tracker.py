@@ -21,7 +21,7 @@ DATA_DIR = _get_data_dir()
 SEEN_TRADES_FILE = os.path.join(DATA_DIR, "polymarket_seen_trades.json")
 
 
-def get_recent_trades(wallet: str, limit: int = 10) -> list:
+def get_recent_trades(wallet: str, limit: int = 20) -> list:
     try:
         r = requests.get(
             "https://data-api.polymarket.com/trades",
@@ -199,7 +199,7 @@ class ExpertTracker:
         # Check expert wallets
         for name, wallet in EXPERT_WALLETS.items():
             try:
-                trades = get_recent_trades(wallet, limit=5)
+                trades = get_recent_trades(wallet, limit=20)  # ✅ תיקון: 20 במקום 5 למניעת פספוס
                 for t in trades:
                     tid = t.get("transactionHash", t.get("id", ""))
                     if not tid or tid in self.seen_ids:
@@ -226,7 +226,7 @@ class ExpertTracker:
         # Check whale wallets
         for name, wallet in WHALE_WALLETS.items():
             try:
-                trades = get_recent_trades(wallet, limit=5)
+                trades = get_recent_trades(wallet, limit=20)  # ✅ תיקון: 20 במקום 5 למניעת פספוס
                 for t in trades:
                     tid = t.get("transactionHash", t.get("id", ""))
                     if not tid or tid in self.seen_ids:

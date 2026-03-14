@@ -293,8 +293,9 @@ def check_wallet_protection(trade_amount_usd: float) -> tuple:
     if not ENFORCE_BALANCE_CHECK:
         return True, ""
     balance = get_wallet_usdc_balance(WALLET_ADDRESS)
-    if balance <= 0:
-        return False, "לא ניתן לשלוף יתרת ארנק"
+    # ✅ תיקון: balance יכול להיות None אם ה-RPC נכשל
+    if balance is None or balance <= 0:
+        return False, "לא ניתן לשלוף יתרת ארנק — עסקה נחסמת"
     if trade_amount_usd > balance:
         return False, f"סכום עסקה (${trade_amount_usd:.2f}) גדול מהיתרה (${balance:.2f})"
     max_allowed = max(balance * MAX_SINGLE_TRADE_PERCENT / 100, 50.0)
@@ -315,6 +316,10 @@ async def send_trade_alert(signal: dict):
         from polymarket_client import get_wallet_usdc_balance as _get_bal
         from config import WALLET_ADDRESS as _WA, DEFAULT_TRADE_AMOUNT_USD
         _bal = _get_bal(_WA)
+        # ✅ תיקון: אם balance=None (RPC נכשל) — חסום את העסקה
+        if _bal is None:
+            logger.warning("יתרת ארנק לא זמינה (RPC נכשל) — עסקה נחסמת")
+            return
         _base = DEFAULT_TRADE_AMOUNT_USD
 
         # ✅ תיקון באג 1: מחיר נוכחי אמיתי מה-API (לא מחיר המומחה)
@@ -343,6 +348,17 @@ async def send_trade_alert(signal: dict):
             )
             return
 
+        # ✅ תיקון: שלוף נפח אמיתי מה-API לבדיקת נזילות (במקום 0.0 קבוע)
+        _market_volume = 0.0
+        try:
+            from polymarket_client import get_market_info as _get_mkt
+            _cond_id = signal.get("condition_id", "")
+            if _cond_id:
+                _mkt_info = _get_mkt(_cond_id)
+                _market_volume = float(_mkt_info.get("volume", _mkt_info.get("volumeNum", 0)) or 0)
+        except Exception:
+            pass
+
         _ts = TradeSignal(
             expert_name       = signal.get("expert_name", ""),
             wallet_address    = signal.get("wallet_address", ""),
@@ -352,7 +368,7 @@ async def send_trade_alert(signal: dict):
             expert_price      = _expert_price,
             current_price     = _current_price,   # ← מחיר נוכחי אמיתי
             expert_trade_usd  = float(signal.get("usd_value", 0)),
-            market_volume_usd = 0.0,
+            market_volume_usd = _market_volume,   # ✅ נפח אמיתי
             end_date          = signal.get("end_date"),
             asset_id          = _asset_id_pipeline,
         )
@@ -471,19 +487,10 @@ async def send_trade_alert(signal: dict):
     else:
         invest_rec = "\n⚪ *המלצה: מומחה חדש — המתן לנתונים נוספים*"
 
-    # Real-time price & gap analysis
+    # Real-time price & gap analysis (for display only — blocking already done in Pipeline stage3)
+    # ✅ תיקון: הסרנו את החסימה הכפולה ב-analyze_price_gap — Pipeline כבר בדק פרש בשלב 3
     current_price = get_current_market_price(asset_id)
-    gap_info = analyze_price_gap(price, current_price, outcome)
-
-    # ═══════════════════════════════════════════════════════════════
-    # 🚫 SPREAD FILTER — חסימה שקטה לפני שליחה
-    # ═══════════════════════════════════════════════════════════════
-    if gap_info.get("blocked"):
-        logger.info(
-            f"🚫 Spread Filter חסם (לא נשלח): {signal.get('expert_name','')} | "
-            f"{signal.get('market_question','')[:60]} | {gap_info.get('block_reason','')}"
-        )
-        return  # Drop silently — no Telegram message sent
+    gap_info = analyze_price_gap(price, current_price, outcome)  # לתצוגה בלבד
 
     if current_price is not None:
         curr_pct = current_price * 100
