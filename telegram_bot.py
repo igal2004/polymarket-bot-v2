@@ -197,12 +197,32 @@ async def cmd_compare(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_resume_trading(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    """הפעלת מסחר מחדש אחרי עצירת Drawdown — /p_resume_trading"""
+    """הפעלת מסחר מחדש אחרי עצירת Drawdown — /p_resume_trading [סכום]"""
     try:
         from market_analysis import resume_trading as _resume
         from polymarket_client import get_wallet_usdc_balance as _get_bal
         from config import WALLET_ADDRESS as _WA
-        cur_bal = _get_bal(_WA) or 0.0
+
+        # אפשרות לציין סכום ידני: /p_resume_trading 350
+        args = ctx.args if ctx and ctx.args else []
+        if args:
+            try:
+                cur_bal = float(args[0])
+            except ValueError:
+                await update.message.reply_text("❌ סכום לא תקין. שימוש: /p_resume_trading [סכום]")
+                return
+        else:
+            # נסה לשלוף מה-RPC
+            cur_bal = _get_bal(_WA)
+            if cur_bal is None or cur_bal <= 0:
+                # RPC נכשל — בקש מהמשתמש לציין ידנית
+                await update.message.reply_text(
+                    "⚠️ לא ניתן לשלוף יתרה אוטומטית.\n"
+                    "שלח: `/p_resume_trading 323` (הכנס את היתרה הנוכחית שלך)",
+                    parse_mode="Markdown"
+                )
+                return
+
         _resume(new_peak=cur_bal)   # אפס שיא ליתרה הנוכחית
         await update.message.reply_text(
             f"✅ *מסחר הופעל מחדש!*\n"
