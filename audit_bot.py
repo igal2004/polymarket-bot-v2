@@ -450,6 +450,56 @@ except Exception as _eme:
     check("P61 ExitManager ניתן ליצירה", False, str(_eme), category="NEW_MODULES")
 
 # ═══════════════════════════════════════════════════════════════
+# 9. בדיקות אינטגרציה — חיבורים נכונים בין מודולים
+# ═══════════════════════════════════════════════════════════════
+# P62 — current_price אמיתי מה-API (לא מחיר המומחה)
+try:
+    _tb_src = open(os.path.join(BOT_DIR, "telegram_bot.py"), encoding="utf-8").read()
+    check("P62 Pipeline מקבל current_price אמיתי מ-API",
+          "_get_cur_price(_asset_id_pipeline)" in _tb_src,
+          "current_price עדיין מחיר המומחה — שלב 3 (Spread) לא עובד!",
+          category="INTEGRATION")
+except Exception as _e:
+    check("P62 Pipeline current_price", False, str(_e), category="INTEGRATION")
+
+# P63 — Pipeline שגיאה = חסום (לא ממשיך)
+try:
+    check("P63 Pipeline exception חוסם עסקה",
+          "שגיאה קריטית ב-Pipeline" in _tb_src and "ממשיך ללא" not in _tb_src,
+          "Pipeline שגיאה עדיין ממשיכה ללא בדיקות!",
+          category="INTEGRATION")
+except Exception as _e:
+    check("P63 Pipeline exception", False, str(_e), category="INTEGRATION")
+
+# P64 — record_trade_result מחובר לסגירת עסקות ב-DRY RUN
+try:
+    _drj_src = open(os.path.join(BOT_DIR, "dry_run_journal.py"), encoding="utf-8").read()
+    check("P64 record_trade_result מחובר לסגירת עסקות",
+          "record_trade_result" in _drj_src or "_record_perf" in _drj_src,
+          "מנגנון השהיית מומחה לא מקבל עדכון תוצאות!",
+          category="INTEGRATION")
+except Exception as _e:
+    check("P64 record_trade_result", False, str(_e), category="INTEGRATION")
+
+# P65 — Spread filter חוסם לפני שליחה (לא אחרי)
+try:
+    check("P65 Spread filter חוסם לפני שליחה",
+          "spread" in _tb_src.lower() and "return" in _tb_src,
+          "Spread filter לא חוסם לפני שליחת ההתראה",
+          category="INTEGRATION")
+except Exception as _e:
+    check("P65 Spread filter", False, str(_e), category="INTEGRATION")
+
+# P66 — ExitManager מחובר לטלגרם (add_position נקרא)
+try:
+    check("P66 ExitManager.add_position נקרא אחרי עסקה",
+          "exit_manager" in _tb_src.lower() and "add_position" in _tb_src,
+          "ExitManager לא מקבל פוזיציות חדשות!",
+          category="INTEGRATION")
+except Exception as _e:
+    check("P66 ExitManager integration", False, str(_e), category="INTEGRATION")
+
+# ═══════════════════════════════════════════════════════════════
 # סיכום + שליחה לטלגרם
 # ═══════════════════════════════════════════════════════════════
 passed_list = [r for r in results if r["passed"] is True]

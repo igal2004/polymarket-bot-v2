@@ -293,10 +293,17 @@ async def send_trade_alert(signal: dict):
     # ═══════════════════════════════════════════════════════════════
     try:
         from trade_pipeline import run_pipeline, TradeSignal, format_pipeline_summary
+        from market_analysis import get_current_market_price as _get_cur_price
         from polymarket_client import get_wallet_usdc_balance as _get_bal
         from config import WALLET_ADDRESS as _WA, DEFAULT_TRADE_AMOUNT_USD
         _bal = _get_bal(_WA)
         _base = DEFAULT_TRADE_AMOUNT_USD
+
+        # ✅ תיקון באג 1: מחיר נוכחי אמיתי מה-API (לא מחיר המומחה)
+        _asset_id_pipeline = signal.get("asset_id", "")
+        _expert_price      = float(signal.get("price", 0.5))
+        _cur_price_real    = _get_cur_price(_asset_id_pipeline)
+        _current_price     = _cur_price_real if _cur_price_real is not None else _expert_price
 
         _ts = TradeSignal(
             expert_name       = signal.get("expert_name", ""),
@@ -304,26 +311,17 @@ async def send_trade_alert(signal: dict):
             market_question   = signal.get("market_question", ""),
             market_slug       = signal.get("market_url", ""),
             direction         = signal.get("outcome", "YES"),
-            expert_price      = float(signal.get("price", 0.5)),
-            current_price     = float(signal.get("price", 0.5)),
+            expert_price      = _expert_price,
+            current_price     = _current_price,   # ← מחיר נוכחי אמיתי
             expert_trade_usd  = float(signal.get("usd_value", 0)),
             market_volume_usd = 0.0,
             end_date          = signal.get("end_date"),
-            asset_id          = signal.get("asset_id"),
+            asset_id          = _asset_id_pipeline,
         )
         _result = run_pipeline(_ts, base_amount=_base, balance=_bal)
         if not _result.approved:
-            # Pipeline rejected this trade — send brief rejection notice
-            await _ptb_app.bot.send_message(
-                chat_id=TELEGRAM_CHAT_ID,
-                text=(
-                    f"🚫 *Pipeline חסם עסקה*\n"
-                    f"👤 {signal.get('expert_name','')} | {signal.get('market_question','')[:60]}\n"
-                    f"❌ סיבה: {_result.rejection_reason}"
-                ),
-                parse_mode="Markdown"
-            )
-            logger.info(f"Pipeline חסם: {_result.rejection_reason}")
+            # Pipeline rejected — silent drop, log only
+            logger.info(f"Pipeline חסם (לא נשלח): {_result.rejection_reason} | {signal.get('expert_name','')}")
             return
         # Attach pipeline data to signal for use below
         signal["_pipeline"]         = _result
@@ -332,9 +330,9 @@ async def send_trade_alert(signal: dict):
         if _result.herd_warning:
             signal["_herd_warning"] = _result.herd_warning
     except Exception as _pipe_err:
-        logger.warning(f"שגיאה ב-Pipeline (ממשיך ללא): {_pipe_err}")
-        signal.setdefault("_pipeline_summary", "")
-        signal.setdefault("_herd_warning", "")
+        # ✅ תיקון באג 3: שגיאה ב-Pipeline = חסום, לא ממשיך
+        logger.error(f"שגיאה קריטית ב-Pipeline — עסקה נחסמת: {_pipe_err}")
+        return
 
     from config import DEFAULT_TRADE_AMOUNT_USD
     from expert_profiles import get_expert_tag, get_expert_warning, get_hot_alert_header, get_automation_priority_rank

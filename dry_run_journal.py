@@ -336,16 +336,29 @@ def check_and_settle_open_trades() -> list:
             if won:
                 payout = trade.get("potential_payout", trade["amount_usd"])
                 profit = payout - trade["amount_usd"]
+                roi = (profit / trade["amount_usd"] * 100) if trade["amount_usd"] > 0 else 0
                 trades[idx]["status"] = "won"
                 trades[idx]["result_usd"] = round(profit, 2)
                 trades[idx]["winning_outcome"] = winning_outcome
                 bal_data["balance"] = round(bal_data["balance"] + payout, 2)
                 logger.info(f"Trade #{trade['id']} WON: +${profit:.2f}")
             else:
+                roi = -(trade["amount_usd"] / trade["amount_usd"] * 100) if trade["amount_usd"] > 0 else -100
                 trades[idx]["status"] = "lost"
                 trades[idx]["result_usd"] = -trade["amount_usd"]
                 trades[idx]["winning_outcome"] = winning_outcome
                 logger.info(f"Trade #{trade['id']} LOST: -${trade['amount_usd']:.2f}")
+            # ✅ תיקון באג 2: עדכון expert_performance.json להפעלת מנגנון השהייה
+            try:
+                from trade_pipeline import record_trade_result as _record_perf
+                _record_perf(
+                    expert_name=trade.get("expert_name", ""),
+                    won=won,
+                    roi=roi
+                )
+                logger.info(f"Pipeline performance updated: {trade.get('expert_name','')} won={won} roi={roi:.1f}%")
+            except Exception as _perf_err:
+                logger.warning(f"שגיאה בעדכון expert_performance: {_perf_err}")
             settled.append(trades[idx])
             changed = True
         except Exception as e:
