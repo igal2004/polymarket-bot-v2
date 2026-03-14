@@ -148,15 +148,20 @@ def analyze_price_gap(expert_price: float, current_price: float, outcome: str,
     max_spread     = MAX_SPREAD_PCT_LARGE if is_large_trade else MAX_SPREAD_PCT_DEFAULT
     spread_label   = f" (עסקה גדולה >{LARGE_TRADE_THRESHOLD/1000:.0f}K — סף מחמיר)" if is_large_trade else ""
 
-    # בדיקת חסימה
+    # בדיקת חסימה — כל כיוון (YES, NO, Under, Over, Team Spirit וכו')
     blocked      = False
     block_reason = ""
+    abs_spread   = abs(gap_pct)
     if outcome.upper() == "YES" and gap_pct > max_spread:
         blocked      = True
         block_reason = f"🚫 חסום: מחיר גבוה ב-{gap_pct:.1f}% ממחיר המומחה (מקסימום: {max_spread}%){spread_label}"
     elif outcome.upper() == "NO" and gap_pct < -max_spread:
         blocked      = True
-        block_reason = f"🚫 חסום: מחיר גבוה ב-{abs(gap_pct):.1f}% ממחיר המומחה (מקסימום: {max_spread}%){spread_label}"
+        block_reason = f"🚫 חסום: מחיר גבוה ב-{abs_spread:.1f}% ממחיר המומחה (מקסימום: {max_spread}%){spread_label}"
+    elif outcome.upper() not in ("YES", "NO") and abs_spread > max_spread:
+        # ✅ תיקון: כיוונים אחרים (Under, Over, Team Spirit וכו') — חסום לפי ערך מוחלט
+        blocked      = True
+        block_reason = f"🚫 חסום: פרש מחיר {abs_spread:.1f}% > {max_spread}% מקסימום (כיוון: {outcome}){spread_label}"
 
     if outcome.upper() == "YES":
         if gap < -0.03:
