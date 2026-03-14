@@ -10,6 +10,7 @@ market_analysis.py — ניתוח שוק, פערי מחיר, ניתוח AI, וג
 import logging
 import requests
 import os
+import json
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -18,28 +19,70 @@ OPENAI_API_KEY  = os.getenv("OPENAI_API_KEY", "")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
 
-# ─── שיפור 4: מעקב Drawdown ──────────────────────────────────────────────────
+# ─── שיפור 4: מעקב Drawdown (עם שמירה לדיסק לשרידות ריסטרט) ─────────────────
 _peak_balance    = None
 _trading_halted  = False
 
+# ✅ תיקון: שמירת _peak_balance לדיסק כדי לשרוד ריסטרטים
+def _get_drawdown_state_file() -> str:
+    """מחזיר נתיב לקובץ מצב ה-Drawdown Guard."""
+    for d in ["/app/data", "/app", "/data", "/tmp"]:
+        try:
+            os.makedirs(d, exist_ok=True)
+            return os.path.join(d, "drawdown_state.json")
+        except Exception:
+            continue
+    return "/tmp/drawdown_state.json"
+
+_DRAWDOWN_STATE_FILE = _get_drawdown_state_file()
+
+def _load_drawdown_state():
+    """טוען מצב Drawdown מדיסק בעת הפעלה."""
+    global _peak_balance, _trading_halted
+    try:
+        if os.path.exists(_DRAWDOWN_STATE_FILE):
+            with open(_DRAWDOWN_STATE_FILE, "r") as f:
+                state = json.load(f)
+            _peak_balance   = state.get("peak_balance", None)
+            _trading_halted = state.get("trading_halted", False)
+            logger.info(f"Drawdown state loaded: peak=${_peak_balance}, halted={_trading_halted}")
+    except Exception as e:
+        logger.warning(f"שגיאה בטעינת drawdown_state.json: {e}")
+
+def _save_drawdown_state():
+    """שומר מצב Drawdown לדיסק."""
+    try:
+        with open(_DRAWDOWN_STATE_FILE, "w") as f:
+            json.dump({"peak_balance": _peak_balance, "trading_halted": _trading_halted}, f)
+    except Exception as e:
+        logger.warning(f"שגיאה בשמירת drawdown_state.json: {e}")
+
+# טען מצב שמור בעת import
+_load_drawdown_state()
+
 def update_peak_balance(current_balance: float):
-    """מעדכן את יתרת השיא לחישוב Drawdown."""
+    """מעדכן את יתרת השיא לחישוב Drawdown ושומר לדיסק."""
     global _peak_balance
     if _peak_balance is None or current_balance > _peak_balance:
         _peak_balance = current_balance
+        _save_drawdown_state()  # ✅ שמור לדיסק מיד
 
 def check_drawdown_halt(current_balance: float) -> tuple:
     """
     בודק האם הפורטפוליו ירד מעל MAX_DRAWDOWN_PERCENT מהשיא.
     מחזיר (halt: bool, message: str).
+    ✅ תיקון: אם _peak_balance=None (ריסטרט ראשון) — טוען מדיסק לפני בדיקה.
     """
     global _trading_halted
     from config import MAX_DRAWDOWN_PERCENT
     if _peak_balance is None or _peak_balance == 0:
+        # ✅ תיקון: לא מניח OK — מאתחל את השיא ליתרה הנוכחית
+        update_peak_balance(current_balance)
         return False, ""
     drawdown_pct = ((_peak_balance - current_balance) / _peak_balance) * 100
     if drawdown_pct >= MAX_DRAWDOWN_PERCENT:
         _trading_halted = True
+        _save_drawdown_state()  # ✅ שמור מצב חסימה לדיסק
         msg = (
             f"🛑 מסחר הופסק אוטומטית!\n"
             f"Drawdown: {drawdown_pct:.1f}% (מקסימום: {MAX_DRAWDOWN_PERCENT}%)\n"
@@ -54,11 +97,12 @@ def is_trading_halted() -> bool:
     return _trading_halted
 
 def resume_trading(new_peak: float = None):
-    """מאפס את מצב ה-Drawdown Guard. אם new_peak סופק — מאפס גם את יתרת השיא."""
+    """מאפס את מצב ה-Drawdown Guard ושומר לדיסק."""
     global _trading_halted, _peak_balance
     _trading_halted = False
     if new_peak is not None:
         _peak_balance = new_peak
+    _save_drawdown_state()  # ✅ שמור איפוס לדיסק
 
 
 # ─── מחיר שוק נוכחי ──────────────────────────────────────────────────────────

@@ -48,6 +48,7 @@ EXPERT_WALLETS = {
 
 # ─── פרמטרי מסחר ─────────────────────────────────────────────────────────────
 DEFAULT_TRADE_AMOUNT_USD = 50
+MAX_TRADE_AMOUNT_USD     = 50   # ✅ מקסימום לעסקה בודדת (בדולרים) — ניתן לשינוי בקונפיג בלבד
 MAX_SLIPPAGE_PERCENT     = 2.0
 MIN_EXPERT_TRADE_USD     = 100
 POLL_INTERVAL_SECONDS    = 60

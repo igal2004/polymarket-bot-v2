@@ -68,13 +68,14 @@ def _send_telegram_backup(trades, balance_data):
         total = len(chunks)
         for idx, chunk in enumerate(chunks, 1):
             part_label = f" ({idx}/{total})" if total > 1 else ""
-        text = f"💾 *DRY RUN Backup{part_label}*\n`{chunk}`"
-        _req.post(
-            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            json={"chat_id": TELEGRAM_CHAT_ID, "text": text,
-                  "parse_mode": "Markdown", "disable_notification": True},
-            timeout=10
-        )
+            # ✅ תיקון: text ו-post בתוך הלולאה (לא מחוצה לה)
+            text = f"💾 *DRY RUN Backup{part_label}*\n`{chunk}`"
+            _req.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={"chat_id": TELEGRAM_CHAT_ID, "text": text,
+                      "parse_mode": "Markdown", "disable_notification": True},
+                timeout=10
+            )
         logger.info("DRY RUN backup sent to Telegram (%d trades)", len(trades))
     except Exception as e:
         logger.warning("שגיאה בשליחת גיבוי לטלגרם: %s", e)
@@ -343,7 +344,7 @@ def check_and_settle_open_trades() -> list:
                 bal_data["balance"] = round(bal_data["balance"] + payout, 2)
                 logger.info(f"Trade #{trade['id']} WON: +${profit:.2f}")
             else:
-                roi = -(trade["amount_usd"] / trade["amount_usd"] * 100) if trade["amount_usd"] > 0 else -100
+                roi = -100.0  # ✅ תיקון: הפסד = -100% ROI (לא חישוב מיותר)
                 trades[idx]["status"] = "lost"
                 trades[idx]["result_usd"] = -trade["amount_usd"]
                 trades[idx]["winning_outcome"] = winning_outcome

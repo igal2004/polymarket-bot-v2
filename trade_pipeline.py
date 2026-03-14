@@ -162,7 +162,11 @@ def stage2_liquidity_check(signal: TradeSignal) -> tuple:
     """
     from config import MIN_MARKET_VOLUME_USD
     vol = signal.market_volume_usd
-    if vol > 0 and vol < MIN_MARKET_VOLUME_USD:
+    # ✅ תיקון: vol==0 משמעו שלא נשלפ נפח מה-API — אזהרה (לא חסימה מוחלטת)
+    if vol == 0:
+        signal.pipeline_log.append(f"⚠️ שלב 2 [LIQUIDITY]: נפח לא ידוע — עובר באזהרה")
+        return True, ""  # אזהרה בלבד, לא חסימה — כי יתכן שה-API לא שלף נפח
+    if vol < MIN_MARKET_VOLUME_USD:
         msg = f"נזילות נמוכה: ${vol:,.0f} < ${MIN_MARKET_VOLUME_USD:,} מינימום"
         signal.pipeline_log.append(f"❌ שלב 2 [LIQUIDITY]: {msg}")
         return False, msg
@@ -180,9 +184,11 @@ def stage3_spread_filter(signal: TradeSignal) -> tuple:
     [GEMINI] RETRY_ATTEMPTS=0: אם נדחה — לא לנסות שוב.
     """
     from config import MAX_SPREAD_PCT_DEFAULT, MAX_SPREAD_PCT_LARGE, LARGE_TRADE_THRESHOLD, MIN_TRADE_PRICE
+    # ✅ תיקון: מחיר מומחה לא תקין — חסום (לא עובר אוטומטית)
     if signal.expert_price <= 0:
-        signal.pipeline_log.append("✅ שלב 3 [SPREAD]: מחיר מומחה לא ידוע — דלג")
-        return True, ""
+        msg = f"מחיר מומחה לא תקין: {signal.expert_price} — עסקה נחסמת"
+        signal.pipeline_log.append(f"❌ שלב 3 [SPREAD]: {msg}")
+        return False, msg
     # ✅ תיקון: חסום עסקאות עם מחיר נמוך מדי (סיכון גבוה מאוד)
     if signal.expert_price < MIN_TRADE_PRICE:
         msg = (f"מחיר נמוך מדי: {signal.expert_price:.3f} < {MIN_TRADE_PRICE:.2f} מינימום "
@@ -379,8 +385,12 @@ def stage7_position_sizing(signal: TradeSignal, base_amount: float, expert_profi
     drift_mult = 0.7 if signal.drift_warning else 1.0
     # חישוב סופי
     final = amount * roi_mult * risk_mult * conv_mult * drift_mult
-    # הגבלת מקסימום
-    max_allowed = 50.0  # מקסימום $50 לעסקה בודדת
+    # הגבלת מקסימום — מ-config.py (לא קבוע)
+    try:
+        from config import MAX_TRADE_AMOUNT_USD as _max_trade
+    except ImportError:
+        _max_trade = 50.0
+    max_allowed = _max_trade
     final = min(final, max_allowed)
     final = max(final, 5.0)  # מינימום $5
     signal.final_trade_usd = round(final, 2)
@@ -553,9 +563,12 @@ def run_pipeline(signal: TradeSignal, current_balance: float = None,
     stage8_signals_and_alerts(signal, expert_profile)
     # ✅ עברה את כל השלבים
     signal.approved = True
-    # הוסף לרשימת הסיגנלים האחרונים
+    # ✅ תיקון: קבע _timestamp לפני append כדי ש-_clean_old_signals לא יזרוק KeyError
     signal._timestamp = datetime.utcnow()
     _recent_signals.append(signal)
+    # שמור רק 200 סיגנלים אחרונים למניעת דליפת זיכרון
+    if len(_recent_signals) > 200:
+        _recent_signals[:] = _recent_signals[-200:]
     logger.info(f"✅ Pipeline אישר: {signal.expert_name} | ${signal.final_trade_usd:.2f}")
     return signal
 
