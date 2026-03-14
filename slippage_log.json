@@ -25,5 +25,248 @@
     "current_price": 0.6,
     "slippage_pct": 0.0,
     "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T05:51:32.758701",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T06:50:12.321539",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T06:50:19.079565",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T06:50:25.337345",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T06:50:32.377722",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T06:50:39.058999",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T06:50:39.820252",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T06:50:45.929889",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T07:11:14.946317",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T07:11:23.151368",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T07:19:44.202592",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:19:44.203430",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:20:19.981246",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:20:19.982026",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:20:43.789979",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:20:43.790762",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:21:30.482946",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:21:30.483848",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:22:15.755191",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:22:15.756038",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:23:16.669836",
+    "expert": "TestExpert",
+    "market": "Test market?",
+    "expert_price": 0.6,
+    "current_price": 0.6,
+    "slippage_pct": 0.0,
+    "expert_trade_usd": 100
+  },
+  {
+    "timestamp": "2026-03-14T07:23:16.928110",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:23:16.928924",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:23:23.256963",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:23:23.257765",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:24:29.403734",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
+  },
+  {
+    "timestamp": "2026-03-14T07:24:29.404635",
+    "expert": "swisstony",
+    "market": "Will the Lakers win tonight?",
+    "expert_price": 0.55,
+    "current_price": 0.57,
+    "slippage_pct": 3.636363636363619,
+    "expert_trade_usd": 120.0
   }
 ]

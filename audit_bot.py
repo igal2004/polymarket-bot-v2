@@ -500,6 +500,27 @@ except Exception as _e:
     check("P66 ExitManager integration", False, str(_e), category="INTEGRATION")
 
 # ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
+# בדיקת End-to-End חיה (סיגנל מדומה דרך כל המערכת)
+# ═══════════════════════════════════════════════════════════════
+try:
+    import subprocess, sys as _sys
+    _e2e = subprocess.run(
+        [_sys.executable, os.path.join(BOT_DIR, "e2e_test.py")],
+        capture_output=True, text=True, timeout=60
+    )
+    _e2e_passed = _e2e.returncode == 0
+    _e2e_lines  = _e2e.stdout.strip().split("\n")
+    # חלץ שורת סיכום
+    _e2e_summary = next((l for l in _e2e_lines if "תוצאות E2E" in l), "")
+    _e2e_fails   = [l for l in _e2e_lines if "❌ FAIL" in l]
+    check("E2E בדיקת חייה מלאה (28 בדיקות)",
+          _e2e_passed,
+          _e2e_summary or ("; ".join(_e2e_fails[:3]) if _e2e_fails else ""),
+          category="E2E")
+except Exception as _e2e_err:
+    check("E2E בדיקת חייה", False, str(_e2e_err), category="E2E")
+
 # סיכום + שליחה לטלגרם
 # ═══════════════════════════════════════════════════════════════
 passed_list = [r for r in results if r["passed"] is True]

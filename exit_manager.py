@@ -335,6 +335,15 @@ class ExitManager:
         pos["pnl_usd"] = round(pnl, 2)
         pos["roi_pct"] = round(pnl / amount * 100, 1) if amount > 0 else 0.0
 
+        # ✅ שמור לדיסק אחרי סיום הפוזיציה (תיקון באג: סטאטוס לא נשמר לקובץ)
+        # הפוזיציה נשמרת עם מפתח 'id' (לא 'trade_id') ב-add_position
+        _all_positions = _load_positions()
+        _pos_id = pos.get("id") or pos.get("trade_id")
+        for _p in _all_positions:
+            if _p.get("id") == _pos_id or _p.get("trade_id") == _pos_id:
+                _p.update(pos)  # עדכן סטאטוס, exit_time, pnl וכו'
+                break
+        _save_positions(_all_positions)
         # שלח התראה לטלגרם
         self._send_exit_alert(pos)
 
