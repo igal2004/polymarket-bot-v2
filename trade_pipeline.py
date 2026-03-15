@@ -53,6 +53,7 @@ class TradeSignal:
     convergence_names: list = field(default_factory=list)
     drift_warning: str = ""
     herd_warning: str = ""
+    activity_warning: str = ""  # אזהרת חוסר פעילות רציפה
     slippage_pct: float = 0.0
     pipeline_log: list = field(default_factory=list)
 
@@ -290,6 +291,82 @@ def stage2c_entry_price_check(signal: TradeSignal) -> tuple:
 # ═════════════════════════════════════════════════════════════════════════════
 # שלב 3: 📉 SPREAD FILTER מקור: [CLAUDE] שיפור 1 + [GEMINI] config
 # ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
+# שלב 2ד: 🗓️ ACTIVITY CHECK
+# בדיקת פעילות רציפה של המומחה — מומחה שלא סחר ב-90 יום אחרונים מקבל משקל מופחת
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# קאש פעילות רציפה — נטען מ-config.py או ברירת מחדל אקסיומאלית
+_ACTIVITY_CACHE: dict = {}   # {wallet: (last_trade_ts, recent_30d_count)}
+_ACTIVITY_CACHE_TTL = 3600  # רענן cache כל שעה
+_ACTIVITY_CACHE_TIME: dict = {}
+
+def _get_expert_activity(wallet: str) -> tuple:
+    """
+    מחזיר (days_since_last_trade, recent_30d_count).
+    משתמש ב-cache כדי לא לקרוא API בכל פעילות.
+    """
+    import requests as _req
+    import time as _time
+    now_ts = _time.time()
+    if wallet in _ACTIVITY_CACHE and (now_ts - _ACTIVITY_CACHE_TIME.get(wallet, 0)) < _ACTIVITY_CACHE_TTL:
+        return _ACTIVITY_CACHE[wallet]
+    try:
+        r = _req.get(
+            f"https://data-api.polymarket.com/activity?user={wallet}&limit=100",
+            timeout=8
+        )
+        if r.status_code != 200:
+            return (0, 100)  # ברירת מחדל אם ה-API אינו זמין
+        trades = r.json()
+        if not trades:
+            return (9999, 0)
+        last_ts = trades[0].get("timestamp", 0)
+        days_ago = int((now_ts - last_ts) / 86400) if last_ts else 9999
+        cutoff_30 = now_ts - 30 * 86400
+        recent_30 = sum(1 for t in trades if t.get("timestamp", 0) > cutoff_30)
+        result = (days_ago, recent_30)
+        _ACTIVITY_CACHE[wallet] = result
+        _ACTIVITY_CACHE_TIME[wallet] = now_ts
+        return result
+    except Exception:
+        return (0, 100)  # ברירת מחדל אם יש שגיאה
+
+def stage2d_activity_check(signal: TradeSignal) -> tuple:
+    """
+    שלב 2ד: בדיקת פעילות רציפה של המומחה.
+
+    ספירת פעילות:
+      פעיל מאוד (≤7 יום)  → משקל מלא (x1.0)
+      פעיל (∤30 יום)     → משקל רגיל (x0.85)
+      חצי פעיל (∤90 יום) → אזהרה + משקל מופחת (x0.6)
+      לא פעיל (>90 יום)   → חסום לחלוטין
+    """
+    try:
+        from config import EXPERT_INACTIVITY_BLOCK_DAYS
+    except ImportError:
+        EXPERT_INACTIVITY_BLOCK_DAYS = 90
+
+    days_ago, recent_30 = _get_expert_activity(signal.wallet_address)
+
+    if days_ago > EXPERT_INACTIVITY_BLOCK_DAYS:
+        msg = (
+            f"מומחה לא פעיל: עסקה אחרונה לפני {days_ago} יום — מעל הסף {EXPERT_INACTIVITY_BLOCK_DAYS} יום. חסום."
+        )
+        signal.activity_warning = msg
+        signal.pipeline_log.append(f"❌ שלב 2ד [ACTIVITY]: {msg}")
+        return False, msg
+
+    if days_ago > 30:
+        signal.activity_warning = f"⚠️ מומחה חצי פעיל: {days_ago} יום מהעסקה האחרונה — משקל מופחת"
+        signal.pipeline_log.append(f"⚠️ שלב 2ד [ACTIVITY]: {signal.activity_warning}")
+    elif days_ago > 7:
+        signal.pipeline_log.append(f"✅ שלב 2ד [ACTIVITY]: פעיל ({days_ago} יום) | 30ד: {recent_30} עסקאות")
+    else:
+        signal.pipeline_log.append(f"✅ שלב 2ד [ACTIVITY]: פעיל מאוד ({days_ago} יום) | 30ד: {recent_30} עסקאות")
+
+    return True, ""
+
 def stage3_spread_filter(signal: TradeSignal) -> tuple:
     """
     בודק שהמחיר הנוכחי לא זזה יותר מדי מהמחיר שהמומחה קנה.
@@ -791,6 +868,12 @@ def run_pipeline(signal: TradeSignal, current_balance: float = None,
     if not ok:
         signal.approved = False
         signal.rejection_reason = f"[שלב 2ג] {msg}"
+        return signal
+    # שלב 2ד: פעילות רציפה של המומחה (>90 יום בלי פעילות = חסום)
+    ok, msg = stage2d_activity_check(signal)
+    if not ok:
+        signal.approved = False
+        signal.rejection_reason = f"[שלב 2ד] {msg}"
         return signal
     # שלב 3: פרש מחיר
     ok, msg = stage3_spread_filter(signal)

@@ -93,15 +93,15 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    from config import EXPERT_WALLETS, WHALE_WALLETS
+    from config import ACTIVE_WALLETS, WHALE_ALERT_WALLETS
     mode = "DRY RUN" if DRY_RUN else "מסחר אמיתי"
     balance = get_wallet_usdc_balance(WALLET_ADDRESS)
     max_per_trade = balance * MAX_SINGLE_TRADE_PERCENT / 100 if balance > 0 else 0
     await update.message.reply_text(
         f"*סטטוס בוט פולימרקט*\n\n"
         f"מצב: {mode}\n"
-        f"🐋 לווייתנים במעקב: {len(WHALE_WALLETS)}\n"
-        f"🧐 מומחים במעקב: {len(EXPERT_WALLETS)}\n"
+        f"🟢 ארנקים פעילים (polling): {len(ACTIVE_WALLETS)}\n"
+        f"🐋 לווייתנים התראה חמה: {len(WHALE_ALERT_WALLETS)}\n"
         f"בדיקה כל: {POLL_INTERVAL_SECONDS} שניות\n\n"
         f"*הגנות ארנק:*\n"
         f"יתרה: ${balance:.2f} USDC\n"
@@ -452,7 +452,11 @@ async def send_trade_alert(signal: dict):
 
     trader_type = signal.get("trader_type", "expert")
     new_tag = " 🆕בבדיקה" if is_new_expert else ""
-    if trader_type == "whale":
+    if trader_type == "whale_alert":
+        # לווייתן היסטורי חזר לסחור — התראה חמה מיוחדת!
+        alert_header = f"🚨🐋 *התראה חמה! לווייתן חזר לשוק!{new_tag}* — {now_il}"
+        trader_label = "🐋 לווייתן חזר לפעילות"
+    elif trader_type == "whale":
         alert_header = f"🐋 *עסקת לווייתן חדשה{new_tag}* — {now_il}"
         trader_label = "לווייתן"
     else:
@@ -920,7 +924,7 @@ async def main():
 
     # Send startup message
     try:
-        from config import EXPERT_WALLETS, WHALE_WALLETS
+        from config import ACTIVE_WALLETS, WHALE_ALERT_WALLETS
         now_il = datetime.datetime.now(ISRAEL_TZ).strftime("%H:%M:%S")
         await _ptb_app.bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
@@ -928,8 +932,8 @@ async def main():
                 f"🟢 *בוט פולימרקט הופעל*\n\n"
                 f"שעה: {now_il}\n"
                 f"מצב: {'DRY RUN' if DRY_RUN else 'מסחר אמיתי'}\n"
-                f"🧐 מומחים במעקב: {len(EXPERT_WALLETS)}\n"
-                f"🐋 לווייתנים במעקב: {len(WHALE_WALLETS)}\n"
+                f"🟢 ארנקים פעילים (polling): {len(ACTIVE_WALLETS)}\n"
+                f"🐋 לווייתנים התראה חמה: {len(WHALE_ALERT_WALLETS)}\n"
                 f"💾 גיבוי יומי אוטומטי פעיל"
             ),
             parse_mode="Markdown"

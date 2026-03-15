@@ -1,12 +1,20 @@
 """
 tracker.py - The core logic for tracking expert wallets on Polymarket.
+
+שתי רשימות מעקב:
+  ACTIVE_WALLETS      — polling שוטף בכל סיבוב (20 ארנקים פעילים)
+  WHALE_ALERT_WALLETS — בדיקה מדי 10 סיבובים בלבד; אם חוזרים — התראה חמה!
 """
 import logging
 import time
 import json
 import os
 import requests
-from config import EXPERT_WALLETS, WHALE_WALLETS, MIN_EXPERT_TRADE_USD, POLL_INTERVAL_SECONDS
+from config import ACTIVE_WALLETS, WHALE_ALERT_WALLETS, MIN_EXPERT_TRADE_USD, POLL_INTERVAL_SECONDS
+
+# תאימות לאחורה — קוד ישן שמשתמש ב-EXPERT_WALLETS / WHALE_WALLETS ימשיך לעבוד
+EXPERT_WALLETS = ACTIVE_WALLETS
+WHALE_WALLETS  = ACTIVE_WALLETS
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +27,9 @@ def _get_data_dir():
 
 DATA_DIR = _get_data_dir()
 SEEN_TRADES_FILE = os.path.join(DATA_DIR, "polymarket_seen_trades.json")
+
+# כמה סיבובים בין כל בדיקה של WHALE_ALERT_WALLETS
+WHALE_ALERT_CHECK_INTERVAL = 10
 
 
 def get_recent_trades(wallet: str, limit: int = 20) -> list:
@@ -53,7 +64,6 @@ def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple
                     q = m.get("question", m.get("title", title or "שוק לא ידוע"))
                     s = m.get("slug", slug or "")
                     url = f"https://polymarket.com/event/{s}" if s else "https://polymarket.com"
-                    # Try multiple end_date fields (in priority order)
                     end_date = m.get("endDateIso") or None
                     if not end_date and m.get("endDate"):
                         end_date = str(m["endDate"])[:10]
@@ -78,7 +88,6 @@ def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple
                 if isinstance(data, list) and data:
                     ev = data[0]
                     url = f"https://polymarket.com/event/{slug}"
-                    # Try to get end_date from event or its markets
                     end_date = ev.get("endDate", "")[:10] if ev.get("endDate") else None
                     if not end_date and ev.get("markets"):
                         first_mkt = ev["markets"][0]
@@ -87,7 +96,7 @@ def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple
                     return q, url, end_date, ""
         except Exception:
             pass
-    # Last resort: return what we have without end_date
+    # Last resort
     if title and slug:
         return title, f"https://polymarket.com/event/{slug}", None, None
     return "שוק לא ידוע", "https://polymarket.com", None, None
@@ -141,6 +150,7 @@ class ExpertTracker:
         self.callback = on_new_trade_callback
         self.seen_ids = set()
         self._first_run = True
+        self._poll_count = 0          # סופר סיבובים לבדיקת WHALE_ALERT_WALLETS
         self._load_seen()
 
     def _load_seen(self):
@@ -154,7 +164,6 @@ class ExpertTracker:
                 self.seen_ids = set()
         else:
             self.seen_ids = set()
-            # Will do a seed run on first check_once call
 
     def _save_seen(self):
         try:
@@ -172,7 +181,8 @@ class ExpertTracker:
         """
         logger.info("הפעלה ראשונה — סורק עסקאות קיימות בלי לשלוח התראות...")
         count = 0
-        all_wallets = {**EXPERT_WALLETS, **WHALE_WALLETS}
+        # Seed both active and whale-alert wallets
+        all_wallets = {**ACTIVE_WALLETS, **WHALE_ALERT_WALLETS}
         for name, wallet in all_wallets.items():
             try:
                 trades = get_recent_trades(wallet, limit=10)
@@ -188,18 +198,25 @@ class ExpertTracker:
         logger.info(f"סריקה ראשונית הושלמה — {count} עסקאות סומנו כידועות")
 
     def check_once(self):
-        """Checks all expert wallets once and triggers the callback for new trades."""
-        # On first run, seed without sending alerts
+        """
+        Checks wallets and triggers the callback for new trades.
+
+        סדר בדיקה:
+          1. ACTIVE_WALLETS — בכל סיבוב (polling שוטף)
+          2. WHALE_ALERT_WALLETS — כל WHALE_ALERT_CHECK_INTERVAL סיבובים
+             (לווייתנים היסטוריים שאינם פעילים — התראה חמה אם חוזרים)
+        """
         if self._first_run:
             self._seed_existing_trades()
             return
 
+        self._poll_count += 1
         new_trades_found = False
 
-        # Check expert wallets
-        for name, wallet in EXPERT_WALLETS.items():
+        # ─── שלב 1: POLLING שוטף — ארנקים פעילים בלבד ───────────────────────
+        for name, wallet in ACTIVE_WALLETS.items():
             try:
-                trades = get_recent_trades(wallet, limit=20)  # ✅ תיקון: 20 במקום 5 למניעת פספוס
+                trades = get_recent_trades(wallet, limit=20)
                 for t in trades:
                     tid = t.get("transactionHash", t.get("id", ""))
                     if not tid or tid in self.seen_ids:
@@ -212,7 +229,7 @@ class ExpertTracker:
                     if signal is None:
                         continue
 
-                    signal["trader_type"] = "expert"
+                    signal["trader_type"] = "active"
                     logger.info(
                         f"[{name}] עסקה חדשה: {signal['market_question'][:60]} | "
                         f"{signal['outcome']} @ {signal['price']:.3f} | ${signal['usd_value']:.0f}"
@@ -223,32 +240,37 @@ class ExpertTracker:
             except Exception as e:
                 logger.warning(f"שגיאה בבדיקת {name}: {e}")
 
-        # Check whale wallets
-        for name, wallet in WHALE_WALLETS.items():
-            try:
-                trades = get_recent_trades(wallet, limit=20)  # ✅ תיקון: 20 במקום 5 למניעת פספוס
-                for t in trades:
-                    tid = t.get("transactionHash", t.get("id", ""))
-                    if not tid or tid in self.seen_ids:
-                        continue
+        # ─── שלב 2: WHALE ALERT — בדיקה כל N סיבובים בלבד ──────────────────
+        if self._poll_count % WHALE_ALERT_CHECK_INTERVAL == 0:
+            logger.debug(f"🐋 בדיקת WHALE_ALERT_WALLETS (סיבוב {self._poll_count})")
+            for name, wallet in WHALE_ALERT_WALLETS.items():
+                try:
+                    trades = get_recent_trades(wallet, limit=5)
+                    for t in trades:
+                        tid = t.get("transactionHash", t.get("id", ""))
+                        if not tid or tid in self.seen_ids:
+                            continue
 
-                    self.seen_ids.add(tid)
-                    new_trades_found = True
+                        self.seen_ids.add(tid)
+                        new_trades_found = True
 
-                    signal = _parse_trade(t, name)
-                    if signal is None:
-                        continue
+                        signal = _parse_trade(t, name)
+                        if signal is None:
+                            continue
 
-                    signal["trader_type"] = "whale"
-                    logger.info(
-                        f"🐋 [{name}] עסקת לווייתן: {signal['market_question'][:60]} | "
-                        f"{signal['outcome']} @ {signal['price']:.3f} | ${signal['usd_value']:.0f}"
-                    )
-                    self.callback(signal)
-                    time.sleep(1)
+                        # סמן כ-whale_alert — התראה חמה מיוחדת!
+                        signal["trader_type"] = "whale_alert"
+                        signal["whale_alert"] = True
+                        logger.warning(
+                            f"🚨 WHALE ALERT! [{name}] חזר לסחור! "
+                            f"{signal['market_question'][:60]} | "
+                            f"{signal['outcome']} @ {signal['price']:.3f} | ${signal['usd_value']:.0f}"
+                        )
+                        self.callback(signal)
+                        time.sleep(1)
 
-            except Exception as e:
-                logger.warning(f"שגיאה בבדיקת לווייתן {name}: {e}")
+                except Exception as e:
+                    logger.warning(f"שגיאה בבדיקת whale_alert {name}: {e}")
 
         if new_trades_found:
             self._save_seen()
