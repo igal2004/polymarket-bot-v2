@@ -567,6 +567,15 @@ async def send_trade_alert(signal: dict):
     except Exception:
         domain_line = ""
 
+    # Value Zone Analysis (שכבה 1 + שכבה 2)
+    value_zone_line = ""
+    try:
+        _pipeline_obj = signal.get('_pipeline_result') or signal.get('_pipeline')
+        if _pipeline_obj:
+            value_zone_line = getattr(_pipeline_obj, '_value_zone_line', '') or ""
+    except Exception:
+        value_zone_line = ""
+
     # חישוב רווח פוטנציאלי ויחס סיכון/תגמול
     profit_loss_line = ""
     try:
@@ -599,7 +608,8 @@ async def send_trade_alert(signal: dict):
         f"{invest_rec}"
         f"{price_gap_line}"
         f"{profit_loss_line}"
-        f"{domain_line}\n"
+        f"{domain_line}"
+        f"{value_zone_line}\n"
         f"💰 סכום {trader_label}: ${usd_val:.0f}"
         f"{convergence_line}"
         f"{herd_line}"

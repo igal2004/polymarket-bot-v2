@@ -525,6 +525,59 @@ def stage6b_domain_check(signal: TradeSignal) -> tuple:
         return True, ""  # לא חוסם בשגיאה
 
 
+def stage6c_value_zone_check(signal: TradeSignal) -> tuple:
+    """
+    שלב 6ג: Value Zone Analysis — ניתוח Value Zone משולב (שכבה 1 + שכבה 2)
+    לא חוסם — מוסיף מידע לציון ולהתראה.
+    """
+    try:
+        from market_value_zones import get_value_zone_analysis, format_value_zone_alert
+
+        market_title = signal.market_question
+        entry_price = signal.current_price
+
+        analysis = get_value_zone_analysis(market_title, entry_price)
+        combined = analysis.get("combined_score")
+        rec = analysis.get("recommendation", "אין נתונים")
+        conf = analysis.get("confidence", "נמוכה")
+        domain = analysis.get("domain", "אחר")
+        price_bin = analysis.get("price_bin", "")
+
+        # שמור את שורת ההתראה לשימוש בטלגרם
+        signal._value_zone_line = format_value_zone_alert(market_title, entry_price)
+        signal._value_zone_score = combined
+        signal._value_zone_domain = domain
+
+        # לוג Pipeline
+        if combined is not None:
+            if combined >= 80:
+                emoji = "🟢"
+            elif combined >= 65:
+                emoji = "🟡"
+            elif combined >= 50:
+                emoji = "🟠"
+            else:
+                emoji = "🔴"
+            signal.pipeline_log.append(
+                f"{emoji} שלב 6ג [VALUE ZONE]: {domain} [{price_bin}] "
+                f"ניקוד {combined}% — {rec} | ביטחון: {conf}"
+            )
+        else:
+            signal.pipeline_log.append(
+                f"📊 שלב 6ג [VALUE ZONE]: {domain} — אין נתונים מספיקים"
+            )
+
+        return True, ""
+
+    except Exception as e:
+        logger.debug(f"שגיאה בשלב 6ג: {e}")
+        signal.pipeline_log.append(f"📊 שלב 6ג [VALUE ZONE]: שגיאה — {e}")
+        signal._value_zone_line = ""
+        signal._value_zone_score = None
+        signal._value_zone_domain = None
+        return True, ""  # לא חוסם בשגיאה
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # שלב 7: ⚖️ POSITION SIZING
 # מקור: [OUR] + [CLAUDE] שיפורים 3,5 + [GEMINI] #2
@@ -765,6 +818,8 @@ def run_pipeline(signal: TradeSignal, current_balance: float = None,
         return signal
     # שלב 6ב: ניתוח תחומי מומחיות (לא חוסם — מוסיף מידע)
     stage6b_domain_check(signal)
+    # שלב 6ג: Value Zone Analysis (לא חוסם — מוסיף מידע)
+    stage6c_value_zone_check(signal)
     # שלב 7: חישוב גודל פוזיציה
     stage7_position_sizing(signal, base_amount, expert_profile)
     # שלב 8: סיגנלים והתראות

@@ -1,0 +1,49 @@
+{
+  "metadata": {
+    "total_markets": 2520,
+    "source": "Polymarket Gamma API",
+    "min_reliable": 100
+  },
+  "domain_win_rates": {
+    "ספורט": {
+      "yes_win_rate": 35.1,
+      "total_markets": 208,
+      "reliable": true
+    },
+    "אחר": {
+      "yes_win_rate": 41.1,
+      "total_markets": 1029,
+      "reliable": true
+    },
+    "קריפטו": {
+      "yes_win_rate": 47.4,
+      "total_markets": 997,
+      "reliable": true
+    },
+    "פוליטיקה": {
+      "yes_win_rate": 35.4,
+      "total_markets": 82,
+      "reliable": false
+    },
+    "טכנולוגיה": {
+      "yes_win_rate": 25.4,
+      "total_markets": 67,
+      "reliable": false
+    },
+    "גיאופוליטיקה": {
+      "yes_win_rate": 21.4,
+      "total_markets": 42,
+      "reliable": false
+    },
+    "כלכלה": {
+      "yes_win_rate": 51.4,
+      "total_markets": 37,
+      "reliable": false
+    },
+    "בידור": {
+      "yes_win_rate": 8.6,
+      "total_markets": 58,
+      "reliable": false
+    }
+  }
+}
