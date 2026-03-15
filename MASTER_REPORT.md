@@ -3084,3 +3084,64 @@ python3.11 build_expert_zones.py
 הגרסה הנוכחית פורסה ל-Railway בתאריך 15 במרץ 2026.
 **Build:** Deployment successful — ACTIVE
 **Commit:** `62365ae` — feat: Value Zone Analysis System (Stage 6c)
+
+---
+
+## עדכון 15/03/2026 — מערכת מעקב דו-שכבתית (Active + Whale Alert)
+
+### הבעיה שנפתרה
+
+5 הלווייתנים הגדולים ביותר (Theo4, Fredi9999, Len9311238, zxgngl, RepTrump) לא סחרו מאז נובמבר 2024 — כ-485 ימים. הם תפסו מקום ב-polling השוטף ו**שיתקו את הבוט** בזמן שהוא חיכה לעסקאות שלעולם לא הגיעו.
+
+### הפתרון — שתי רשימות נפרדות
+
+#### `ACTIVE_WALLETS` — 20 ארנקים פעילים (polling שוטף)
+
+| שם | תחום | פעילות |
+|---|---|---|
+| HorizonSplendidView | ספורט אירופאי | פעיל מאוד (+$4.0M) |
+| kch123 | רב-תחומי | פעיל מאוד |
+| DrPufferfish | ספורט | פעיל מאוד |
+| RN1 | ספורט | פעיל מאוד |
+| GCottrell93 | ספורט | פעיל מאוד |
+| swisstony | רב-תחומי | פעיל מאוד |
+| GamblingIsAllYouNeed | ספורט | פעיל מאוד |
+| beachboy4 | ספורט | פעיל מאוד |
+| anoin123 | רב-תחומי | פעיל מאוד |
+| weflyhigh | ספורט | פעיל מאוד |
+| YatSen | רב-תחומי | פעיל מאוד |
+| SwissMiss | ספורט | פעיל מאוד |
+| KeyTransporter | רב-תחומי | פעיל |
+| gmanas | ספורט | פעיל |
+| blackwall | ספורט אירופאי | פעיל |
+| gmpm | רב-תחומי | פעיל |
+| majorexploiter | ספורט אירופאי | פעיל (+$2.42M) |
+| 0x8dxd | קריפטו XRP | פעיל מאוד (+$2.18M) |
+| coinman2 | קריפטו ETH/SOL | פעיל מאוד (+$937K) |
+| 0xafEe | טכנולוגיה/AI | חצי פעיל (+$1.19M) |
+
+#### `WHALE_ALERT_WALLETS` — 5 לווייתנים היסטוריים (התראה חמה בלבד)
+
+נבדקים כל 10 סיבובים בלבד. אם חוזרים לסחור — **התראה חמה מיוחדת** עם כותרת `🚨🐋 התראה חמה! לווייתן חזר לשוק!`
+
+| שם | רווח כולל | Win Rate |
+|---|---|---|
+| Theo4 | +$22M | 88.9% |
+| Fredi9999 | +$16.6M | 73.3% |
+| Len9311238 | +$8.7M | 100% |
+| zxgngl | +$7.8M | 80% |
+| RepTrump | +$7.5M | 100% |
+
+### שינויים טכניים
+
+| קובץ | שינוי |
+|---|---|
+| `config.py` | `ACTIVE_WALLETS` + `WHALE_ALERT_WALLETS` (תאימות לאחורה: `EXPERT_WALLETS`/`WHALE_WALLETS` = alias) |
+| `tracker.py` | polling שוטף על `ACTIVE_WALLETS`; בדיקת `WHALE_ALERT_WALLETS` כל 10 סיבובים |
+| `trade_pipeline.py` | שלב 2ד חדש: `stage2d_activity_check` — חוסם מומחה שלא סחר >90 יום |
+| `telegram_bot.py` | כותרת `whale_alert` מיוחדת; ספירות עודכנו בסטטוס ובהפעלה |
+
+### Commit
+
+`e87c203` — feat: split wallets into ACTIVE_WALLETS (20) + WHALE_ALERT_WALLETS (5)
+
