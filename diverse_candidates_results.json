@@ -1,0 +1,234 @@
+[
+  {
+    "name": "HorizonSplendidView",
+    "wallet": "0x02227b8f5a9636e895607edd3185ed6ee5598ff7",
+    "category": "monthly",
+    "pnl": 4016108,
+    "recent_trades": 500,
+    "top_domain": "טכנולוגיה",
+    "domain_counts": {
+      "טכנולוגיה": 226
+    }
+  },
+  {
+    "name": "majorexploiter",
+    "wallet": "0x019782cab5d844f02bafb71f512758be78579f3c",
+    "category": "monthly",
+    "pnl": 2416975,
+    "recent_trades": 500,
+    "top_domain": "ספורט",
+    "domain_counts": {
+      "ספורט": 251
+    }
+  },
+  {
+    "name": "0x2a2C53bD278c04DA9962Fcf96490E17F3DfB9Bc1-1772479215461",
+    "wallet": "0x2a2c53bd278c04da9962fcf96490e17f3dfb9bc1",
+    "category": "monthly",
+    "pnl": 2361768,
+    "recent_trades": 500,
+    "top_domain": "אחר",
+    "domain_counts": {
+      "אחר": 82,
+      "ספורט": 2
+    }
+  },
+  {
+    "name": "0x8dxd",
+    "wallet": "0x63ce342161250d705dc0b16df89036c8e5f9ba9a",
+    "category": "crypto",
+    "pnl": 2177291,
+    "recent_trades": 500,
+    "top_domain": "קריפטו",
+    "domain_counts": {
+      "קריפטו": 70
+    }
+  },
+  {
+    "name": "CemeterySun",
+    "wallet": "0x37c1874a60d348903594a96703e0507c518fc53a",
+    "category": "monthly",
+    "pnl": 2058704,
+    "recent_trades": 500,
+    "top_domain": "ספורט",
+    "domain_counts": {
+      "ספורט": 159,
+      "אחר": 70
+    }
+  },
+  {
+    "name": "Countryside",
+    "wallet": "0xbddf61af533ff524d27154e589d2d7a81510c684",
+    "category": "monthly",
+    "pnl": 1877345,
+    "recent_trades": 500,
+    "top_domain": "ספורט",
+    "domain_counts": {
+      "ספורט": 124,
+      "אחר": 59
+    }
+  },
+  {
+    "name": "0xf705fa045201391d9632b7f3cde06a5e24453ca7",
+    "wallet": "0xf705fa045201391d9632b7f3cde06a5e24453ca7",
+    "category": "crypto",
+    "pnl": 1828605,
+    "recent_trades": 500,
+    "top_domain": "קריפטו",
+    "domain_counts": {
+      "קריפטו": 258
+    }
+  },
+  {
+    "name": "k9Q2mX4L8A7ZP3R",
+    "wallet": "0xd0d6053c3c37e727402d84c14069780d360993aa",
+    "category": "crypto",
+    "pnl": 1545547,
+    "recent_trades": 500,
+    "top_domain": "קריפטו",
+    "domain_counts": {
+      "קריפטו": 73
+    }
+  },
+  {
+    "name": "432614799197",
+    "wallet": "0xdc876e6873772d38716fda7f2452a78d426d7ab6",
+    "category": "monthly",
+    "pnl": 1508895,
+    "recent_trades": 500,
+    "top_domain": "אחר",
+    "domain_counts": {
+      "גיאופוליטיקה": 26,
+      "אחר": 147,
+      "ספורט": 13
+    }
+  },
+  {
+    "name": "justdance",
+    "wallet": "0xcc500cbcc8b7cf5bd21975ebbea34f21b5644c82",
+    "category": "crypto",
+    "pnl": 1395409,
+    "recent_trades": 500,
+    "top_domain": "קריפטו",
+    "domain_counts": {
+      "קריפטו": 83
+    }
+  },
+  {
+    "name": "0xafEe",
+    "wallet": "0xee50a31c3f5a7c77824b12a941a54388a2827ed6",
+    "category": "tech",
+    "pnl": 1190808,
+    "recent_trades": 500,
+    "top_domain": "טכנולוגיה",
+    "domain_counts": {
+      "טכנולוגיה": 177,
+      "פוליטיקה": 46,
+      "בידור": 13
+    }
+  },
+  {
+    "name": "gatorr",
+    "wallet": "0x93abbc022ce98d6f45d4444b594791cc4b7a9723",
+    "category": "monthly",
+    "pnl": 1188723,
+    "recent_trades": 500,
+    "top_domain": "אחר",
+    "domain_counts": {
+      "אחר": 140,
+      "ספורט": 23,
+      "גיאופוליטיקה": 31
+    }
+  },
+  {
+    "name": "0x1979ae6B7E6534dE9c4539D0c205E582cA637C9D-1769439463256",
+    "wallet": "0x1979ae6b7e6534de9c4539d0c205e582ca637c9d",
+    "category": "crypto",
+    "pnl": 1135744,
+    "recent_trades": 500,
+    "top_domain": "קריפטו",
+    "domain_counts": {
+      "קריפטו": 91
+    }
+  },
+  {
+    "name": "0p0jogggg",
+    "wallet": "0x6ac5bb06a9eb05641fd5e82640268b92f3ab4b6e",
+    "category": "monthly",
+    "pnl": 996290,
+    "recent_trades": 500,
+    "top_domain": "אחר",
+    "domain_counts": {
+      "ספורט": 75,
+      "אחר": 82,
+      "גיאופוליטיקה": 8,
+      "טכנולוגיה": 21
+    }
+  },
+  {
+    "name": "0xa95bfdb",
+    "wallet": "0xebf79787ab928c803cbef6fa8e0abe42b9e1da78",
+    "category": "crypto",
+    "pnl": 947978,
+    "recent_trades": 500,
+    "top_domain": "קריפטו",
+    "domain_counts": {
+      "קריפטו": 34
+    }
+  },
+  {
+    "name": "coinman2",
+    "wallet": "0x55be7aa03ecfbe37aa5460db791205f7ac9ddca3",
+    "category": "crypto",
+    "pnl": 937945,
+    "recent_trades": 500,
+    "top_domain": "קריפטו",
+    "domain_counts": {
+      "קריפטו": 166
+    }
+  },
+  {
+    "name": "stonksgoup",
+    "wallet": "0x4a38e6e0330c2463fb5ac2188a620634039abfe8",
+    "category": "crypto",
+    "pnl": 903992,
+    "recent_trades": 500,
+    "top_domain": "קריפטו",
+    "domain_counts": {
+      "קריפטו": 180
+    }
+  },
+  {
+    "name": "gabagool22",
+    "wallet": "0x6031b6eed1c97e853c6e0f03ad3ce3529351f96d",
+    "category": "crypto",
+    "pnl": 868872,
+    "recent_trades": 500,
+    "top_domain": "אחר",
+    "domain_counts": {}
+  },
+  {
+    "name": "PurpleThunderBicycleMountain",
+    "wallet": "0x589222a5124a96765443b97a3498d89ffd824ad2",
+    "category": "crypto",
+    "pnl": 853686,
+    "recent_trades": 500,
+    "top_domain": "קריפטו",
+    "domain_counts": {
+      "קריפטו": 70
+    }
+  },
+  {
+    "name": "bcda",
+    "wallet": "0xb45a797faa52b0fd8adc56d30382022b7b12192c",
+    "category": "monthly",
+    "pnl": 797915,
+    "recent_trades": 500,
+    "top_domain": "אחר",
+    "domain_counts": {
+      "אחר": 108,
+      "ספורט": 90,
+      "טכנולוגיה": 9
+    }
+  }
+]

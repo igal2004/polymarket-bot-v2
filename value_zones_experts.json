@@ -1,7 +1,7 @@
 {
   "metadata": {
     "source": "Polymarket data-api.polymarket.com/positions",
-    "wallets_analyzed": 20,
+    "wallets_analyzed": 25,
     "experts": [
       "kch123",
       "DrPufferfish",
@@ -17,14 +17,19 @@
       "weflyhigh",
       "gmpm",
       "YatSen",
-      "SwissMiss"
+      "SwissMiss",
+      "0xafEe",
+      "0x8dxd",
+      "majorexploiter",
+      "coinman2"
     ],
     "whales": [
       "Theo4",
       "Fredi9999",
       "Len9311238",
       "zxgngl",
-      "RepTrump"
+      "RepTrump",
+      "HorizonSplendidView"
     ],
     "description": "Win rates by domain and price bin for our tracked experts/whales",
     "min_trades_reliable": 20
@@ -36,13 +41,13 @@
       "total_positions": 68,
       "domain_totals": {
         "אחר": {
-          "wins": 49,
-          "losses": 10,
+          "wins": 59,
+          "losses": 0,
           "total": 59
         },
         "ספורט": {
-          "wins": 5,
-          "losses": 1,
+          "wins": 6,
+          "losses": 0,
           "total": 6
         },
         "גיאופוליטיקה": {
@@ -64,8 +69,8 @@
       "domain_totals": {
         "ספורט": {
           "wins": 262,
-          "losses": 13,
-          "total": 275
+          "losses": 12,
+          "total": 274
         },
         "אחר": {
           "wins": 421,
@@ -109,27 +114,27 @@
     {
       "name": "RN1",
       "type": "expert",
-      "total_positions": 734,
+      "total_positions": 607,
       "domain_totals": {
         "אחר": {
-          "wins": 439,
-          "losses": 64,
-          "total": 503
+          "wins": 348,
+          "losses": 12,
+          "total": 360
         },
         "ספורט": {
-          "wins": 184,
-          "losses": 22,
-          "total": 206
+          "wins": 158,
+          "losses": 9,
+          "total": 167
+        },
+        "גיאופוליטיקה": {
+          "wins": 4,
+          "losses": 1,
+          "total": 5
         },
         "פוליטיקה": {
           "wins": 1,
           "losses": 0,
           "total": 1
-        },
-        "גיאופוליטיקה": {
-          "wins": 6,
-          "losses": 0,
-          "total": 6
         },
         "קריפטו": {
           "wins": 3,
@@ -178,22 +183,22 @@
     {
       "name": "swisstony",
       "type": "expert",
-      "total_positions": 1390,
+      "total_positions": 1227,
       "domain_totals": {
         "אחר": {
-          "wins": 179,
-          "losses": 130,
-          "total": 309
+          "wins": 53,
+          "losses": 29,
+          "total": 82
         },
         "ספורט": {
-          "wins": 70,
-          "losses": 53,
-          "total": 123
+          "wins": 15,
+          "losses": 12,
+          "total": 27
         },
-        "קריפטו": {
-          "wins": 2,
-          "losses": 2,
-          "total": 4
+        "גיאופוליטיקה": {
+          "wins": 1,
+          "losses": 1,
+          "total": 2
         }
       }
     },
@@ -208,9 +213,9 @@
           "total": 71
         },
         "אחר": {
-          "wins": 96,
+          "wins": 97,
           "losses": 0,
-          "total": 96
+          "total": 97
         },
         "גיאופוליטיקה": {
           "wins": 6,
@@ -232,22 +237,22 @@
     {
       "name": "GamblingIsAllYouNeed",
       "type": "expert",
-      "total_positions": 1131,
+      "total_positions": 1215,
       "domain_totals": {
         "אחר": {
-          "wins": 521,
-          "losses": 73,
-          "total": 594
+          "wins": 618,
+          "losses": 10,
+          "total": 628
         },
         "ספורט": {
-          "wins": 378,
-          "losses": 29,
-          "total": 407
+          "wins": 426,
+          "losses": 9,
+          "total": 435
         },
         "גיאופוליטיקה": {
-          "wins": 13,
-          "losses": 1,
-          "total": 14
+          "wins": 17,
+          "losses": 3,
+          "total": 20
         },
         "פוליטיקה": {
           "wins": 3,
@@ -330,11 +335,11 @@
     {
       "name": "weflyhigh",
       "type": "expert",
-      "total_positions": 220,
+      "total_positions": 221,
       "domain_totals": {
         "אחר": {
-          "wins": 156,
-          "losses": 3,
+          "wins": 159,
+          "losses": 0,
           "total": 159
         },
         "קריפטו": {
@@ -421,22 +426,12 @@
     {
       "name": "SwissMiss",
       "type": "expert",
-      "total_positions": 83,
+      "total_positions": 80,
       "domain_totals": {
-        "פוליטיקה": {
-          "wins": 2,
-          "losses": 1,
-          "total": 3
-        },
-        "ספורט": {
-          "wins": 2,
-          "losses": 1,
-          "total": 3
-        },
         "גיאופוליטיקה": {
-          "wins": 5,
+          "wins": 7,
           "losses": 0,
-          "total": 5
+          "total": 7
         },
         "אחר": {
           "wins": 1,
@@ -447,6 +442,73 @@
           "wins": 1,
           "losses": 0,
           "total": 1
+        },
+        "ספורט": {
+          "wins": 1,
+          "losses": 0,
+          "total": 1
+        },
+        "פוליטיקה": {
+          "wins": 2,
+          "losses": 0,
+          "total": 2
+        }
+      }
+    },
+    {
+      "name": "0xafEe",
+      "type": "expert",
+      "total_positions": 5,
+      "domain_totals": {
+        "טכנולוגיה": {
+          "wins": 2,
+          "losses": 0,
+          "total": 2
+        },
+        "פוליטיקה": {
+          "wins": 1,
+          "losses": 0,
+          "total": 1
+        },
+        "כלכלה": {
+          "wins": 1,
+          "losses": 0,
+          "total": 1
+        },
+        "גיאופוליטיקה": {
+          "wins": 1,
+          "losses": 0,
+          "total": 1
+        }
+      }
+    },
+    {
+      "name": "0x8dxd",
+      "type": "expert",
+      "total_positions": 39,
+      "domain_totals": {
+        "קריפטו": {
+          "wins": 19,
+          "losses": 8,
+          "total": 27
+        }
+      }
+    },
+    {
+      "name": "majorexploiter",
+      "type": "expert",
+      "total_positions": 0,
+      "domain_totals": {}
+    },
+    {
+      "name": "coinman2",
+      "type": "expert",
+      "total_positions": 296,
+      "domain_totals": {
+        "קריפטו": {
+          "wins": 261,
+          "losses": 6,
+          "total": 267
         }
       }
     },
@@ -491,125 +553,137 @@
       "type": "whale",
       "total_positions": 0,
       "domain_totals": {}
+    },
+    {
+      "name": "HorizonSplendidView",
+      "type": "whale",
+      "total_positions": 10,
+      "domain_totals": {
+        "ספורט": {
+          "wins": 10,
+          "losses": 0,
+          "total": 10
+        }
+      }
     }
   ],
   "aggregated": {
     "value_zones_by_domain_price": {
       "אחר": {
         "0.35-0.50": {
-          "win_rate": 86.8,
-          "wins": 577,
-          "losses": 88,
-          "total": 665,
+          "win_rate": 98.9,
+          "wins": 614,
+          "losses": 7,
+          "total": 621,
           "reliable": true
         },
         "0.50-0.65": {
-          "win_rate": 88.3,
-          "wins": 409,
-          "losses": 54,
-          "total": 463,
+          "win_rate": 98.0,
+          "wins": 387,
+          "losses": 8,
+          "total": 395,
           "reliable": true
         },
         "0.65-0.75": {
-          "win_rate": 93.2,
-          "wins": 151,
-          "losses": 11,
-          "total": 162,
+          "win_rate": 96.7,
+          "wins": 117,
+          "losses": 4,
+          "total": 121,
           "reliable": true
         },
         "0.75+": {
-          "win_rate": 95.8,
-          "wins": 254,
-          "losses": 11,
-          "total": 265,
+          "win_rate": 100.0,
+          "wins": 150,
+          "losses": 0,
+          "total": 150,
           "reliable": true
         },
         "0.00-0.20": {
-          "win_rate": 78.4,
-          "wins": 261,
-          "losses": 72,
-          "total": 333,
+          "win_rate": 89.0,
+          "wins": 274,
+          "losses": 34,
+          "total": 308,
           "reliable": true
         },
         "0.20-0.35": {
-          "win_rate": 82.4,
-          "wins": 262,
-          "losses": 56,
-          "total": 318,
+          "win_rate": 96.4,
+          "wins": 266,
+          "losses": 10,
+          "total": 276,
           "reliable": true
         }
       },
       "ספורט": {
         "0.35-0.50": {
-          "win_rate": 89.9,
-          "wins": 187,
-          "losses": 21,
-          "total": 208,
+          "win_rate": 94.0,
+          "wins": 189,
+          "losses": 12,
+          "total": 201,
           "reliable": true
         },
         "0.65-0.75": {
-          "win_rate": 87.8,
-          "wins": 79,
-          "losses": 11,
-          "total": 90,
+          "win_rate": 98.8,
+          "wins": 80,
+          "losses": 1,
+          "total": 81,
           "reliable": true
         },
         "0.50-0.65": {
-          "win_rate": 95.4,
-          "wins": 186,
-          "losses": 9,
-          "total": 195,
+          "win_rate": 99.4,
+          "wins": 174,
+          "losses": 1,
+          "total": 175,
           "reliable": true
         },
         "0.20-0.35": {
-          "win_rate": 85.8,
-          "wins": 151,
-          "losses": 25,
-          "total": 176,
+          "win_rate": 94.1,
+          "wins": 159,
+          "losses": 10,
+          "total": 169,
           "reliable": true
         },
         "0.00-0.20": {
-          "win_rate": 82.2,
-          "wins": 249,
-          "losses": 54,
-          "total": 303,
+          "win_rate": 91.8,
+          "wins": 269,
+          "losses": 24,
+          "total": 293,
           "reliable": true
         },
         "0.75+": {
-          "win_rate": 96.8,
-          "wins": 181,
-          "losses": 6,
-          "total": 187,
+          "win_rate": 99.3,
+          "wins": 139,
+          "losses": 1,
+          "total": 140,
           "reliable": true
         }
       },
       "גיאופוליטיקה": {
         "0.35-0.50": {
-          "win_rate": 100.0,
-          "wins": 28,
-          "losses": 0,
-          "total": 28,
+          "win_rate": 93.1,
+          "wins": 27,
+          "losses": 2,
+          "total": 29,
           "reliable": true
         },
         "0.65-0.75": {
           "win_rate": 100.0,
-          "wins": 5,
+          "wins": 7,
           "losses": 0,
-          "total": 5,
+          "total": 7,
           "reliable": false
         },
         "0.20-0.35": {
-          "win_rate": 94.1,
-          "wins": 16,
-          "losses": 1,
-          "total": 17,
+          "win_rate": 89.5,
+          "wins": 17,
+          "losses": 2,
+          "total": 19,
           "reliable": false
         },
         "0.50-0.65": {
-          "win_rate": 100.0,
-          "wins": 25,
-          "losses": 0,
-          "total": 25,
+          "win_rate": 96.3,
+          "wins": 26,
+          "losses": 1,
+          "total": 27,
           "reliable": true
         },
         "0.00-0.20": {
@@ -621,55 +695,69 @@
         },
         "0.75+": {
           "win_rate": 100.0,
-          "wins": 18,
+          "wins": 21,
           "losses": 0,
-          "total": 18,
-          "reliable": false
+          "total": 21,
+          "reliable": true
         }
       },
       "קריפטו": {
         "0.50-0.65": {
           "win_rate": 100.0,
-          "wins": 9,
+          "wins": 39,
           "losses": 0,
-          "total": 9,
-          "reliable": false
+          "total": 39,
+          "reliable": true
         },
         "0.00-0.20": {
-          "win_rate": 85.7,
-          "wins": 6,
-          "losses": 1,
-          "total": 7,
-          "reliable": false
+          "win_rate": 95.3,
+          "wins": 161,
+          "losses": 8,
+          "total": 169,
+          "reliable": true
+        },
+        "0.75+": {
+          "win_rate": 100.0,
+          "wins": 20,
+          "losses": 0,
+          "total": 20,
+          "reliable": true
         },
         "0.20-0.35": {
-          "win_rate": 80.0,
-          "wins": 4,
-          "losses": 1,
-          "total": 5,
-          "reliable": false
+          "win_rate": 91.4,
+          "wins": 32,
+          "losses": 3,
+          "total": 35,
+          "reliable": true
         },
         "0.35-0.50": {
-          "win_rate": 100.0,
-          "wins": 6,
-          "losses": 0,
-          "total": 6,
+          "win_rate": 94.9,
+          "wins": 37,
+          "losses": 2,
+          "total": 39,
+          "reliable": true
+        },
+        "0.65-0.75": {
+          "win_rate": 94.7,
+          "wins": 18,
+          "losses": 1,
+          "total": 19,
           "reliable": false
         }
       },
       "פוליטיקה": {
         "0.50-0.65": {
-          "win_rate": 83.3,
-          "wins": 5,
-          "losses": 1,
-          "total": 6,
-          "reliable": false
-        },
-        "0.20-0.35": {
           "win_rate": 100.0,
           "wins": 5,
           "losses": 0,
           "total": 5,
+          "reliable": false
+        },
+        "0.20-0.35": {
+          "win_rate": 100.0,
+          "wins": 6,
+          "losses": 0,
+          "total": 6,
           "reliable": false
         },
         "0.35-0.50": {
@@ -715,52 +803,52 @@
     },
     "domain_summary": {
       "אחר": {
-        "win_rate": 86.8,
-        "wins": 1914,
-        "losses": 292,
-        "total": 2206,
+        "win_rate": 96.6,
+        "wins": 1808,
+        "losses": 63,
+        "total": 1871,
         "reliable": true
       },
       "ספורט": {
-        "win_rate": 89.1,
-        "wins": 1033,
-        "losses": 126,
-        "total": 1159,
+        "win_rate": 95.4,
+        "wins": 1010,
+        "losses": 49,
+        "total": 1059,
         "reliable": true
       },
       "גיאופוליטיקה": {
-        "win_rate": 97.3,
-        "wins": 108,
-        "losses": 3,
-        "total": 111,
+        "win_rate": 94.2,
+        "wins": 114,
+        "losses": 7,
+        "total": 121,
         "reliable": true
       },
       "קריפטו": {
-        "win_rate": 93.5,
-        "wins": 29,
-        "losses": 2,
-        "total": 31,
+        "win_rate": 95.6,
+        "wins": 307,
+        "losses": 14,
+        "total": 321,
         "reliable": true
       },
       "פוליטיקה": {
-        "win_rate": 93.8,
-        "wins": 30,
-        "losses": 2,
+        "win_rate": 96.9,
+        "wins": 31,
+        "losses": 1,
         "total": 32,
         "reliable": true
       },
       "כלכלה": {
-        "win_rate": 82.4,
-        "wins": 14,
+        "win_rate": 83.3,
+        "wins": 15,
         "losses": 3,
-        "total": 17,
+        "total": 18,
         "reliable": false
       },
       "טכנולוגיה": {
         "win_rate": 100.0,
-        "wins": 7,
+        "wins": 9,
         "losses": 0,
-        "total": 7,
+        "total": 9,
         "reliable": false
       }
     }
