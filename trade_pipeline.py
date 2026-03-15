@@ -54,6 +54,7 @@ class TradeSignal:
     drift_warning: str = ""
     herd_warning: str = ""
     activity_warning: str = ""  # אזהרת חוסר פעילות רציפה
+    trader_type: str = "active"   # active | whale_alert
     slippage_pct: float = 0.0
     pipeline_log: list = field(default_factory=list)
 
@@ -342,6 +343,12 @@ def stage2d_activity_check(signal: TradeSignal) -> tuple:
       חצי פעיל (∤90 יום) → אזהרה + משקל מופחת (x0.6)
       לא פעיל (>90 יום)   → חסום לחלוטין
     """
+    # whale_alert = לווייתן היסטורי שחזר לסחור — לא נחסום על פעילות (הוא כבר ידוע כלא פעיל)
+    if getattr(signal, 'trader_type', 'active') == 'whale_alert':
+        signal.pipeline_log.append(
+            "🐋 שלב 2ד [ACTIVITY]: whale_alert — בדיקת פעילות דולגת (לווייתן חזר לפעילות!)"
+        )
+        return True, ""
     try:
         from config import EXPERT_INACTIVITY_BLOCK_DAYS
     except ImportError:

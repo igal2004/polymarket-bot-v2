@@ -7,7 +7,10 @@ import requests
 import json
 import time
 from collections import defaultdict
-from config import EXPERT_WALLETS, WHALE_WALLETS  # נטען מ-config.py — כולל כל 25 הארנקים
+from config import ACTIVE_WALLETS, WHALE_ALERT_WALLETS  # נטען מ-config.py — כולל כל 25 הארנקים
+# תאימות לאחור — שמות ישנים
+EXPERT_WALLETS = ACTIVE_WALLETS
+WHALE_WALLETS  = WHALE_ALERT_WALLETS
 
 # ─── מילות מפתח לסיווג תחומים ────────────────────────────────────────────────
 DOMAIN_KEYWORDS = {
@@ -264,8 +267,8 @@ def main():
         "metadata": {
             "source": "Polymarket data-api.polymarket.com/positions",
             "wallets_analyzed": len(all_results),
-            "experts": list(EXPERT_WALLETS.keys()),
-            "whales": list(WHALE_WALLETS.keys()),
+            "experts": list(ACTIVE_WALLETS.keys()),
+            "whales": list(WHALE_ALERT_WALLETS.keys()),
             "description": "Win rates by domain and price bin for our tracked experts/whales",
             "min_trades_reliable": 20,
         },

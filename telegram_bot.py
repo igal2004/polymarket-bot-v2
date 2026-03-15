@@ -391,6 +391,7 @@ async def send_trade_alert(signal: dict):
             market_volume_usd = _market_volume,   # ✅ נפח אמיתי
             end_date          = signal.get("end_date"),
             asset_id          = _asset_id_pipeline,
+            trader_type       = signal.get("trader_type", "active"),  # ✅ מעביר לשלב 2ד
         )
         _result = run_pipeline(_ts, base_amount=_base, balance=_bal)
         if not _result.approved:

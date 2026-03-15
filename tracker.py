@@ -102,7 +102,7 @@ def get_market_question(asset_id: str, slug: str = "", title: str = "") -> tuple
     return "שוק לא ידוע", "https://polymarket.com", None, None
 
 
-def _parse_trade(t: dict, name: str) -> dict:
+def _parse_trade(t: dict, name: str, wallet: str = "") -> dict:
     """Parses a trade dict and returns a signal dict or None."""
     tid = t.get("transactionHash", t.get("id", ""))
     if not tid:
@@ -133,6 +133,7 @@ def _parse_trade(t: dict, name: str) -> dict:
     return {
         "trade_id": tid,
         "expert_name": name,
+        "wallet_address": wallet,   # ✅ נדרש ע"י stage2d_activity_check
         "market_question": question,
         "market_url": url,
         "asset_id": asset_id,
@@ -221,14 +222,11 @@ class ExpertTracker:
                     tid = t.get("transactionHash", t.get("id", ""))
                     if not tid or tid in self.seen_ids:
                         continue
-
                     self.seen_ids.add(tid)
                     new_trades_found = True
-
-                    signal = _parse_trade(t, name)
+                    signal = _parse_trade(t, name, wallet=wallet)  # ✅ מעביר כתובת ארנק
                     if signal is None:
                         continue
-
                     signal["trader_type"] = "active"
                     logger.info(
                         f"[{name}] עסקה חדשה: {signal['market_question'][:60]} | "
@@ -254,10 +252,9 @@ class ExpertTracker:
                         self.seen_ids.add(tid)
                         new_trades_found = True
 
-                        signal = _parse_trade(t, name)
+                        signal = _parse_trade(t, name, wallet=wallet)  # ✅ מעביר כתובת ארנק
                         if signal is None:
                             continue
-
                         # סמן כ-whale_alert — התראה חמה מיוחדת!
                         signal["trader_type"] = "whale_alert"
                         signal["whale_alert"] = True
