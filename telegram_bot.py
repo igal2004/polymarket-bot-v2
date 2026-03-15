@@ -558,6 +558,15 @@ async def send_trade_alert(signal: dict):
     if signal.get("_trade_amount_pipeline"):
         trade_amount = signal["_trade_amount_pipeline"]
 
+    # ניתוח תחום מומחיות
+    domain_line = ""
+    try:
+        _pipeline_obj = signal.get('_pipeline_result') or signal.get('_pipeline')
+        if _pipeline_obj:
+            domain_line = getattr(_pipeline_obj, '_domain_line', '') or ""
+    except Exception:
+        domain_line = ""
+
     # חישוב רווח פוטנציאלי ויחס סיכון/תגמול
     profit_loss_line = ""
     try:
@@ -589,7 +598,8 @@ async def send_trade_alert(signal: dict):
         f"{risk_profile_line}{warning_line}"
         f"{invest_rec}"
         f"{price_gap_line}"
-        f"{profit_loss_line}\n"
+        f"{profit_loss_line}"
+        f"{domain_line}\n"
         f"💰 סכום {trader_label}: ${usd_val:.0f}"
         f"{convergence_line}"
         f"{herd_line}"

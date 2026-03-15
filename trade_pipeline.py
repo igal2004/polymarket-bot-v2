@@ -455,6 +455,77 @@ def stage6_sector_exposure(signal: TradeSignal) -> tuple:
     return True, ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# שלב 6ב: 🏆 DOMAIN SPECIALIZATION CHECK
+# מקור: [OUR] — ניתוח תחומי מומחיות לפי היסטוריית הפוזיציות
+# ═══════════════════════════════════════════════════════════════════════════════
+def stage6b_domain_check(signal: TradeSignal) -> tuple:
+    """
+    בודק אם השוק הנוכחי הוא בתחום המומחיות של המומחה.
+    לא חוסם — רק מוסיף מידע לציון ולהתראה.
+    """
+    try:
+        from expert_domain_analyzer import get_expert_domain_profile, classify_market, format_domain_alert_line
+        
+        wallet = signal.wallet_address
+        market_title = signal.market_question
+        
+        if not wallet:
+            signal.pipeline_log.append("📊 שלב 6ב [DOMAIN]: אין כתובת ארנק — דילוג")
+            signal._domain_line = ""
+            return True, ""
+        
+        profile = get_expert_domain_profile(wallet)
+        current_domain = classify_market(market_title)
+        best_domain = profile.get("best_domain")
+        best_rate = profile.get("best_domain_win_rate")
+        domains = profile.get("domains", {})
+        current_stats = domains.get(current_domain, {})
+        current_rate = current_stats.get("win_rate")
+        current_closed = current_stats.get("wins", 0) + current_stats.get("losses", 0)
+        
+        # שמור את שורת ההתראה לשימוש בטלגרם
+        signal._domain_line = format_domain_alert_line(wallet, market_title)
+        signal._current_domain = current_domain
+        
+        # לוג Pipeline
+        if current_rate is not None and current_closed >= 2:
+            pct = int(current_rate * 100)
+            if current_rate >= 0.70:
+                signal.pipeline_log.append(
+                    f"✅ שלב 6ב [DOMAIN]: תחום '{current_domain}' — {pct}% הצלחה ({current_closed} עסקאות) — תחום חוזקה!"
+                )
+            elif current_rate >= 0.50:
+                signal.pipeline_log.append(
+                    f"🟡 שלב 6ב [DOMAIN]: תחום '{current_domain}' — {pct}% הצלחה ({current_closed} עסקאות) — בינוני"
+                )
+            else:
+                signal.pipeline_log.append(
+                    f"⚠️ שלב 6ב [DOMAIN]: תחום '{current_domain}' — {pct}% הצלחה ({current_closed} עסקאות) — תחום חולשה"
+                )
+        elif current_stats.get("count", 0) > 0:
+            signal.pipeline_log.append(
+                f"📊 שלב 6ב [DOMAIN]: תחום '{current_domain}' — נתונים חלקיים ({current_stats.get('count', 0)} עסקאות)"
+            )
+        else:
+            signal.pipeline_log.append(
+                f"📊 שלב 6ב [DOMAIN]: תחום '{current_domain}' — אין היסטוריה"
+            )
+        
+        if best_domain and best_domain != current_domain and best_rate:
+            signal.pipeline_log.append(
+                f"🥇 תחום החוזקה: '{best_domain}' ({int(best_rate*100)}%)"
+            )
+        
+        return True, ""
+    
+    except Exception as e:
+        logger.debug(f"שגיאה בשלב 6ב: {e}")
+        signal.pipeline_log.append(f"📊 שלב 6ב [DOMAIN]: שגיאה — {e}")
+        signal._domain_line = ""
+        return True, ""  # לא חוסם בשגיאה
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # שלב 7: ⚖️ POSITION SIZING
 # מקור: [OUR] + [CLAUDE] שיפורים 3,5 + [GEMINI] #2
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -692,6 +763,8 @@ def run_pipeline(signal: TradeSignal, current_balance: float = None,
         signal.approved = False
         signal.rejection_reason = f"[שלב 6] {msg}"
         return signal
+    # שלב 6ב: ניתוח תחומי מומחיות (לא חוסם — מוסיף מידע)
+    stage6b_domain_check(signal)
     # שלב 7: חישוב גודל פוזיציה
     stage7_position_sizing(signal, base_amount, expert_profile)
     # שלב 8: סיגנלים והתראות
