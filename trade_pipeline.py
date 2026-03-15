@@ -157,20 +157,43 @@ def stage1_drawdown_guard(signal: TradeSignal, current_balance: float) -> tuple:
 # ═══════════════════════════════════════════════════════════════════════════════
 def stage2_liquidity_check(signal: TradeSignal) -> tuple:
     """
-    חוסם שווקים עם נפח מסחר נמוך מ-MIN_MARKET_VOLUME_USD.
-    בשוק דל נזילות: הפרש קנייה/מכירה גבוה + קשה לצאת.
+    חוסם שווקים עם נפח מסחר נמוך ממינ-MARKET_VOLUME_USD.
+    שומר את רמת הגנה הדינמית לפי VOLUME_TIERS ב-signal לשימוש בשלב 3.
     """
-    from config import MIN_MARKET_VOLUME_USD
+    from config import MIN_MARKET_VOLUME_USD, VOLUME_TIERS
     vol = signal.market_volume_usd
-    # ✅ תיקון: vol==0 משמעו שלא נשלפ נפח מה-API — אזהרה (לא חסימה מוחלטת)
+    # ✅ תיקון: vol==0 משמעו שלא נשלף נפח מה-API — אזהרה (לא חסימה מוחלטת)
     if vol == 0:
         signal.pipeline_log.append(f"⚠️ שלב 2 [LIQUIDITY]: נפח לא ידוע — עובר באזהרה")
+        # ברירת מחדל: הגנה רגילה
+        signal.pipeline_log.append(f"🛡️ מדרגת הגנה: רגילה (Slippage מקסימלי: 2.0% | Spread מקסימלי: 20%)")
+        signal._volume_tier = (2.0, 20)  # ברירת מחדל
         return True, ""  # אזהרה בלבד, לא חסימה — כי יתכן שה-API לא שלף נפח
     if vol < MIN_MARKET_VOLUME_USD:
         msg = f"נזילות נמוכה: ${vol:,.0f} < ${MIN_MARKET_VOLUME_USD:,} מינימום"
         signal.pipeline_log.append(f"❌ שלב 2 [LIQUIDITY]: {msg}")
         return False, msg
-    signal.pipeline_log.append(f"✅ שלב 2 [LIQUIDITY]: נפח ${vol:,.0f} תקין")
+    # בחר מדרגת הגנה לפי נפח השוק
+    slippage_limit = 2.0
+    spread_limit = 20
+    tier_label = "רגילה"
+    for tier_vol, tier_slip, tier_spread in sorted(VOLUME_TIERS, key=lambda x: x[0]):
+        if vol >= tier_vol:
+            slippage_limit = tier_slip
+            spread_limit = tier_spread
+            if tier_vol >= 5000:
+                tier_label = "רגילה"
+            elif tier_vol >= 3000:
+                tier_label = "מוגברת"
+            else:
+                tier_label = "חזקה"
+    # שמור ב-signal לשימוש בשלב 3
+    signal._volume_tier = (slippage_limit, spread_limit)
+    signal.pipeline_log.append(
+        f"✅ שלב 2 [LIQUIDITY]: נפח ${vol:,.0f} תקין "
+        f"| 🛡️ מדרגת הגנה {tier_label} "
+        f"(Slippage מקסימלי: {slippage_limit}% | Spread מקסימלי: {spread_limit}%)"
+    )
     return True, ""
 
 # ══# ═════════════════════════════════════════════════════════════════════════════
@@ -222,6 +245,49 @@ def stage2b_expiry_check(signal: TradeSignal) -> tuple:
         return True, ""
 
 # ═════════════════════════════════════════════════════════════════════════════
+# שלב 2ג: 💰 ENTRY PRICE FILTER
+# מקור: [בקשת משתמש] חסימת עסקאות עם מחיר כניסה גבוה — יחס סיכון/תגמול לא משתלם
+# ═════════════════════════════════════════════════════════════════════════════
+def stage2c_entry_price_check(signal: TradeSignal) -> tuple:
+    """
+    חוסם עסקאות עם מחיר כניסה גבוה מדי (>MAX_ENTRY_PRICE).
+    מחיר גבוה = רווח פוטנציאלי נמוך מול סיכון גבוה.
+    אם MAX_ENTRY_PRICE=0 — ללא הגבלה.
+    """
+    try:
+        from config import MAX_ENTRY_PRICE
+    except ImportError:
+        MAX_ENTRY_PRICE = 0.75
+    if MAX_ENTRY_PRICE <= 0:
+        signal.pipeline_log.append("✅ שלב 2ג [ENTRY_PRICE]: ללא הגבלת מחיר כניסה")
+        return True, ""
+    try:
+        price = float(signal.current_price)
+        if price <= 0:
+            signal.pipeline_log.append("⚠️ שלב 2ג [ENTRY_PRICE]: מחיר לא תקין — עובר")
+            return True, ""
+        if price > MAX_ENTRY_PRICE:
+            # חשב רווח פוטנציאלי לדוגמה על $32
+            example_invest = 32.0
+            potential_profit = example_invest * (1 - price) / price
+            msg = (f"מחיר כניסה {price:.3f} מעל מקסימום {MAX_ENTRY_PRICE} "
+                   f"(רווח פוטנציאלי: ${potential_profit:.2f} על $32 — לא משתלם)")
+            signal.pipeline_log.append(f"❌ שלב 2ג [ENTRY_PRICE]: {msg}")
+            return False, msg
+        # חשב רווח פוטנציאלי ורשום בלוג
+        example_invest = 32.0
+        potential_profit = example_invest * (1 - price) / price
+        ratio = (1 - price) / price
+        signal.pipeline_log.append(
+            f"✅ שלב 2ג [ENTRY_PRICE]: מחיר {price:.3f} תקין "
+            f"(רווח פוטנציאלי: ${potential_profit:.2f} | יחס: 1:{ratio:.2f})"
+        )
+        return True, ""
+    except Exception as e:
+        signal.pipeline_log.append(f"⚠️ שלב 2ג [ENTRY_PRICE]: שגיאה ({e}) — עובר")
+        return True, ""
+
+# ═════════════════════════════════════════════════════════════════════════════
 # שלב 3: 📉 SPREAD FILTER מקור: [CLAUDE] שיפור 1 + [GEMINI] config
 # ═══════════════════════════════════════════════════════════════════════════════
 def stage3_spread_filter(signal: TradeSignal) -> tuple:
@@ -233,13 +299,13 @@ def stage3_spread_filter(signal: TradeSignal) -> tuple:
     from config import MAX_SPREAD_PCT_DEFAULT, MAX_SPREAD_PCT_LARGE, LARGE_TRADE_THRESHOLD, MIN_TRADE_PRICE
     # ✅ תיקון: מחיר מומחה לא תקין — חסום (לא עובר אוטומטית)
     if signal.expert_price <= 0:
-        msg = f"מחיר מומחה לא תקין: {signal.expert_price} — עסקה נחסמת"
+        msg = f"מחיר מומחה לא תקין: {signal.expert_price} — עסקאה נחסמת"
         signal.pipeline_log.append(f"❌ שלב 3 [SPREAD]: {msg}")
         return False, msg
     # ✅ תיקון: חסום עסקאות עם מחיר נמוך מדי (סיכון גבוה מאוד)
     if signal.expert_price < MIN_TRADE_PRICE:
         msg = (f"מחיר נמוך מדי: {signal.expert_price:.3f} < {MIN_TRADE_PRICE:.2f} מינימום "
-               f"(סיכון גבוה מאוד — סיכוי ניצחון נמוך מ-{MIN_TRADE_PRICE*100:.0f}%)")
+               f"(סיכון גבוה מאוד — סיכוי ניצחון נמוך מב-{MIN_TRADE_PRICE*100:.0f}%)")
         signal.pipeline_log.append(f"❌ שלב 3 [SPREAD/MIN_PRICE]: {msg}")
         return False, msg
     if signal.current_price < MIN_TRADE_PRICE:
@@ -250,14 +316,24 @@ def stage3_spread_filter(signal: TradeSignal) -> tuple:
     # חישוב פרש
     spread_pct = abs(signal.current_price - signal.expert_price) / signal.expert_price * 100
     signal.slippage_pct = spread_pct
-    # בחר סף לפי גודל עסקה
-    max_spread = MAX_SPREAD_PCT_LARGE if signal.expert_trade_usd >= LARGE_TRADE_THRESHOLD else MAX_SPREAD_PCT_DEFAULT
+    # בחר סף Spread: קודם כל בדוק מדרגת הגנה דינמית (משלב 2), אחרכך לפי גודל עסקה
+    volume_tier_spread = getattr(signal, '_volume_tier', (2.0, MAX_SPREAD_PCT_DEFAULT))[1]
+    # עסקאות גדולות (>$50K) מזיזות שוק — סף נפרד ומחמיר יותר
+    if signal.expert_trade_usd >= LARGE_TRADE_THRESHOLD:
+        max_spread = min(MAX_SPREAD_PCT_LARGE, volume_tier_spread)
+        spread_source = f"עסקה גדולה + מדרגת נפח"
+    else:
+        max_spread = volume_tier_spread
+        spread_source = f"מדרגת נפח שוק"
     if spread_pct > max_spread:
         msg = (f"פרש מחיר גבוה: {spread_pct:.1f}% > {max_spread}% מקסימום "
-               f"(עסקת מומחה: ${signal.expert_trade_usd:,.0f})")
+               f"({spread_source} | עסקת מומחה: ${signal.expert_trade_usd:,.0f})")
         signal.pipeline_log.append(f"❌ שלב 3 [SPREAD]: {msg}")
         return False, msg
-    signal.pipeline_log.append(f"✅ שלב 3 [SPREAD]: פרש {spread_pct:.1f}% תקין (מקסימום {max_spread}%)")
+    signal.pipeline_log.append(
+        f"✅ שלב 3 [SPREAD]: פרש {spread_pct:.1f}% תקין "
+        f"(מקסימום {max_spread}% לפי {spread_source})"
+    )
     return True, ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -585,6 +661,12 @@ def run_pipeline(signal: TradeSignal, current_balance: float = None,
     if not ok:
         signal.approved = False
         signal.rejection_reason = f"[שלב 2ב] {msg}"
+        return signal
+    # שלב 2ג: מחיר כניסה מקסימלי (0.75)
+    ok, msg = stage2c_entry_price_check(signal)
+    if not ok:
+        signal.approved = False
+        signal.rejection_reason = f"[שלב 2ג] {msg}"
         return signal
     # שלב 3: פרש מחיר
     ok, msg = stage3_spread_filter(signal)

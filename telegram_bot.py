@@ -558,6 +558,28 @@ async def send_trade_alert(signal: dict):
     if signal.get("_trade_amount_pipeline"):
         trade_amount = signal["_trade_amount_pipeline"]
 
+    # חישוב רווח פוטנציאלי ויחס סיכון/תגמול
+    profit_loss_line = ""
+    try:
+        entry_price = float(current_price) if current_price else float(price)
+        if entry_price > 0:
+            potential_profit = trade_amount * (1 - entry_price) / entry_price
+            risk_reward_ratio = (1 - entry_price) / entry_price
+            # צבע לפי איכות העסקא
+            if risk_reward_ratio >= 1.0:        # רווח > סיכון — מצוין
+                rr_emoji = "🟢"
+            elif risk_reward_ratio >= 0.5:      # רווח = 50-100% מהסיכון — בינוני
+                rr_emoji = "🟡"
+            else:                               # רווח < 50% מהסיכון — גרוע
+                rr_emoji = "🔴"
+            profit_loss_line = (
+                f"\n{rr_emoji} רווח פוטנציאלי: *+${potential_profit:.2f}* אם ניצחת"
+                f" | סיכון: *-${trade_amount:.2f}* אם הפסדת"
+                f"\n⚖️ יחס סיכון/תגמול: *1:{risk_reward_ratio:.2f}*"
+            )
+    except Exception as _pl_err:
+        logger.debug(f"שגיאה בחישוב רווח/סיכון: {_pl_err}")
+
     text = (
         f"{hot_header}{alert_header}\n\n"
         f"👤 {trader_label}: *{expert}*\n"
@@ -566,7 +588,8 @@ async def send_trade_alert(signal: dict):
         f"💵 מחיר מומחה: *{price:.3f}* ({price_pct:.1f}%) — {price_emoji}"
         f"{risk_profile_line}{warning_line}"
         f"{invest_rec}"
-        f"{price_gap_line}\n"
+        f"{price_gap_line}"
+        f"{profit_loss_line}\n"
         f"💰 סכום {trader_label}: ${usd_val:.0f}"
         f"{convergence_line}"
         f"{herd_line}"
