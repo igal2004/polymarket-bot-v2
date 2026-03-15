@@ -3145,3 +3145,38 @@ python3.11 build_expert_zones.py
 
 `e87c203` — feat: split wallets into ACTIVE_WALLETS (20) + WHALE_ALERT_WALLETS (5)
 
+
+---
+
+## 🔍 ביקורת צינור — Pipeline Audit (15/03/2026)
+
+### 3 פערים שנמצאו ותוקנו
+
+#### פער 1 — קריטי: `wallet_address` לא הועבר ב-signal
+**בעיה:** `_parse_trade()` ב-`tracker.py` החזיר dict ללא `wallet_address` → `stage2d_activity_check` קיבל מחרוזת ריקה → בדיקת הפעילות לא עבדה בכלל.
+
+**תיקון:** `_parse_trade(t, name, wallet="")` — כעת מקבל ומעביר את כתובת הארנק. גם `telegram_bot.py` מעביר `trader_type` ל-`TradeSignal`.
+
+#### פער 2 — בינוני: `whale_alert` נחסם ע"י `stage2d`
+**בעיה:** לווייתנים היסטוריים (Theo4 וכו') מוגדרים כ-`WHALE_ALERT_WALLETS` כי לא פעילים >90 יום — אבל `stage2d` היה חוסם אותם בדיוק בגלל זה, כך שהתראה חמה לעולם לא הייתה מגיעה.
+
+**תיקון:** `stage2d` מדלג על בדיקת פעילות אם `trader_type == "whale_alert"` — עם לוג: `🐋 שלב 2ד: whale_alert — בדיקת פעילות דולגת`.
+
+#### פער 3 — קל: `value_zones_experts.json` לא כלל 5 ארנקים חדשים
+**בעיה:** `build_expert_zones.py` ייבא `EXPERT_WALLETS`/`WHALE_WALLETS` — שמות ישנים שכבר לא קיימים לאחר השינוי ל-`ACTIVE_WALLETS`/`WHALE_ALERT_WALLETS`. הקובץ נבנה עם 40 ארנקים (כפול) אבל ה-aggregation לא עבד.
+
+**תיקון:** עודכן לייבא `ACTIVE_WALLETS` ו-`WHALE_ALERT_WALLETS`. נבנה מחדש עם **25 ארנקים** ו-**3,474 עסקאות סגורות**.
+
+### תוצאות Value Zones המעודכנות (25 ארנקים)
+
+| תחום | Win Rate | עסקאות | אמינות |
+|---|---|---|---|
+| **אחר** | 97.0% | 1,857 | ✅ |
+| **ספורט** | 94.6% | 1,093 | ✅ |
+| **גיאופוליטיקה** | 94.2% | 120 | ✅ |
+| **פוליטיקה** | 96.9% | 32 | ✅ |
+| **קריפטו** | 91.9% | 345 | ✅ |
+| **כלכלה** | 83.3% | 18 | ⚠️ |
+| **טכנולוגיה** | 100.0% | 9 | ⚠️ |
+
+**Railway Commit:** `75a532c`
