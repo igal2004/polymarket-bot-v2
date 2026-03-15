@@ -56,6 +56,7 @@ class TradeSignal:
     activity_warning: str = ""  # אזהרת חוסר פעילות רציפה
     trader_type: str = "active"   # active | whale_alert
     slippage_pct: float = 0.0
+    sector: str = "general"   # תחום השוק לחישוב פרש דינמי
     pipeline_log: list = field(default_factory=list)
 
 # ─── מסד נתוני ביצועי מומחים (נשמר בקובץ JSON) ────────────────────────────────
@@ -380,7 +381,7 @@ def stage3_spread_filter(signal: TradeSignal) -> tuple:
     עסקות גדולות (>$50K) מזיזות שוק — לכן פרש מחמיר יותר.
     [GEMINI] RETRY_ATTEMPTS=0: אם נדחה — לא לנסות שוב.
     """
-    from config import MAX_SPREAD_PCT_DEFAULT, MAX_SPREAD_PCT_LARGE, LARGE_TRADE_THRESHOLD, MIN_TRADE_PRICE
+    from config import MAX_SPREAD_PCT_DEFAULT, MAX_SPREAD_PCT_LARGE, LARGE_TRADE_THRESHOLD, MIN_TRADE_PRICE, DOMAIN_SPREAD_OVERRIDES
     # ✅ תיקון: מחיר מומחה לא תקין — חסום (לא עובר אוטומטית)
     if signal.expert_price <= 0:
         msg = f"מחיר מומחה לא תקין: {signal.expert_price} — עסקאה נחסמת"
@@ -400,15 +401,19 @@ def stage3_spread_filter(signal: TradeSignal) -> tuple:
     # חישוב פרש
     spread_pct = abs(signal.current_price - signal.expert_price) / signal.expert_price * 100
     signal.slippage_pct = spread_pct
-    # בחר סף Spread: קודם כל בדוק מדרגת הגנה דינמית (משלב 2), אחרכך לפי גודל עסקה
+    # בחר סף Spread: לפי תחום > מדרגת נפח > גודל עסקה
     volume_tier_spread = getattr(signal, '_volume_tier', (2.0, MAX_SPREAD_PCT_DEFAULT))[1]
+    # ספורט ותחומים עם פרש טבעי גדול — סף גמיש יותר
+    sector = getattr(signal, 'sector', 'general') or 'general'
+    domain_spread = DOMAIN_SPREAD_OVERRIDES.get(sector, MAX_SPREAD_PCT_DEFAULT)
     # עסקאות גדולות (>$50K) מזיזות שוק — סף נפרד ומחמיר יותר
     if signal.expert_trade_usd >= LARGE_TRADE_THRESHOLD:
         max_spread = min(MAX_SPREAD_PCT_LARGE, volume_tier_spread)
         spread_source = f"עסקה גדולה + מדרגת נפח"
     else:
-        max_spread = volume_tier_spread
-        spread_source = f"מדרגת נפח שוק"
+        # קח את המקסימום בין מדרגת נפח לבין סף התחום
+        max_spread = max(volume_tier_spread, domain_spread)
+        spread_source = f"תחום {sector} (סף {domain_spread}%)"
     if spread_pct > max_spread:
         msg = (f"פרש מחיר גבוה: {spread_pct:.1f}% > {max_spread}% מקסימום "
                f"({spread_source} | עסקת מומחה: ${signal.expert_trade_usd:,.0f})")
@@ -505,7 +510,24 @@ def stage5_herd_detection(signal: TradeSignal) -> tuple:
 # מילות מפתח לזיהוי סקטורים
 SECTOR_KEYWORDS = {
     "politics":  ["trump", "biden", "election", "president", "congress", "senate", "democrat", "republican", "vote", "poll"],
-    "sports":    ["nfl", "nba", "mlb", "soccer", "football", "basketball", "tennis", "golf", "olympic", "championship", "league", "cup"],
+    "sports":    [
+        # ספורט אמריקאי
+        "nfl", "nba", "mlb", "nhl", "soccer", "football", "basketball", "tennis", "golf",
+        "olympic", "championship", "super bowl", "march madness", "ncaa",
+        # כדורגל אירופאי — ליגות
+        "premier league", "la liga", "serie a", "bundesliga", "ligue 1", "champions league",
+        "europa league", "eredivisie", "primeira liga",
+        # כדורגל אירופאי — קבוצות נפוצות
+        "liverpool", "arsenal", "chelsea", "manchester", "tottenham", "barcelona",
+        "real madrid", "atletico", "juventus", "inter milan", "ac milan", "napoli",
+        "bayern", "dortmund", "psg", "ajax", "feyenoord", "porto", "benfica",
+        "sevilla", "villarreal", "athletic", "werder", "leverkusen", "pisa", "cagliari",
+        # פורמטי שווקים ספורט
+        "o/u", "over/under", "spread:", "will win on", "end in a draw",
+        # ספורט אחר
+        "league", "cup", "ufc", "mma", "boxing", "f1", "formula", "nascar",
+        "wimbledon", "us open", "french open", "australian open",
+    ],
     "crypto":    ["bitcoin", "btc", "ethereum", "eth", "crypto", "defi", "nft", "blockchain", "solana", "polygon"],
     "economy":   ["fed", "inflation", "gdp", "recession", "interest rate", "stock", "market", "economy", "dollar", "oil"],
     "geopolitics": ["war", "ukraine", "russia", "china", "israel", "iran", "nato", "military", "conflict", "sanction"],

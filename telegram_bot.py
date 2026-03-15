@@ -393,6 +393,9 @@ async def send_trade_alert(signal: dict):
             asset_id          = _asset_id_pipeline,
             trader_type       = signal.get("trader_type", "active"),  # ✅ מעביר לשלב 2ד
         )
+        # זיהוי תחום לשלב 3 (פרש לפי תחום)
+        from trade_pipeline import _detect_sector
+        _ts.sector = _detect_sector(signal.get("market_question", ""))
         _result = run_pipeline(_ts, base_amount=_base, balance=_bal)
         if not _result.approved:
             # Pipeline rejected — silent drop, log only
